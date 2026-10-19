@@ -1,0 +1,18 @@
+/* Keep page width stable when a dialog locks background scrolling. */
+html {scrollbar-gutter:stable}
+.offline-dialog {border:0;border-radius:16px;padding:32px;max-width:min(560px,92vw);box-sizing:border-box;color:#1a1a1a;font-family:Montserrat,sans-serif;box-shadow:0 8px 60px #0004}
+.offline-dialog::backdrop{background:#0008}
+.offline-dialog h2{font-size:22px;margin:0 30px 20px 0}
+.offline-dialog p{font-size:14px;line-height:1.6;margin:12px 0}
+.offline-dialog .offline-close{position:absolute;right:15px;top:10px;border:0;background:transparent;font-size:28px;cursor:pointer}
+.offline-dialog .btn{padding:12px 24px;margin-top:14px}
+.offline-dialog input:not([type=checkbox]),.offline-dialog textarea{display:block;width:100%;box-sizing:border-box;border:1px solid #aaa;border-radius:6px;padding:12px;margin:10px 0;font:inherit}
+.offline-dialog label{display:block;font-size:14px}
+.offline-map-wrap{position:relative;width:100%;height:100%}
+.offline-map-fallback{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;box-sizing:border-box;background:#f1f3f4;text-align:center;gap:16px;font-size:15px;z-index:2}
+.offline-map-fallback[hidden]{display:none}
+.offline-map-fallback a{color:#0094da}
+.shop-list__map{max-width:100%}
+.shop-list__map .map-shops{width:100%;position:relative}
+.bookmark__tabs-link:focus-visible{outline:2px solid #0094da;outline-offset:4px}
+.offline-choice-note{font-size:12px;line-height:1.5;color:#666;margin-top:8px}
