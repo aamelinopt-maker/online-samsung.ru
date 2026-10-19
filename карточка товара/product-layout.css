@@ -776,3 +776,14 @@ body.client-product-responsive:has(dialog[open]){overflow:hidden}
  .client-mobile-purchase-row{gap:10px;padding-left:12px;padding-right:12px}
 }
 
+
+/* Keep the gallery visible beside the long purchase column, only at 701–1599px. */
+@media(min-width:701px) and (max-width:1599px){
+ .good-page--three-columns .client-gallery-column{position:static;align-self:stretch}
+ .good-page--three-columns .client-gallery-column>.product-gallery{position:sticky;top:var(--client-gallery-top,173px)}
+ .good-page--three-columns .product-gallery__image-wrapper{width:min(100%,calc(100dvh - var(--client-gallery-top,173px) - 24px));justify-self:center}
+ .client-product-responsive .header{min-height:var(--client-header-height,175px)!important}
+ .client-product-responsive #head{position:fixed;top:0;left:0;right:0;width:100%;z-index:5000;transform:translateY(var(--client-nav-shift,79px));transition:box-shadow .25s ease}
+ .client-product-responsive .good-page__header{display:block;top:var(--client-nav-height,96px);opacity:0;visibility:hidden;pointer-events:none;transform:translateY(calc(-100% - 12px));transition:transform .4s cubic-bezier(.22,1,.36,1),opacity .3s ease,visibility 0s linear .4s}
+ .client-product-responsive .good-page__header.scrolled:not(.client-header-dismissed){opacity:1;visibility:visible;pointer-events:auto;transform:translateY(0);transition:transform .4s cubic-bezier(.22,1,.36,1),opacity .3s ease,visibility 0s}
+}

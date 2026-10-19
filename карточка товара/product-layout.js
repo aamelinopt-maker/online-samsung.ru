@@ -124,6 +124,49 @@
   mobileLayout.addEventListener('change', arrangeProduct);
   arrangeProduct();
 
+  // Sticky gallery applies only to the two-column desktop layout.
+  const stickyGalleryLayout = window.matchMedia('(min-width:701px) and (max-width:1599px)');
+  const siteHeader = document.querySelector('.header');
+  const mainHeader = document.getElementById('head');
+  const priceHeader = page.querySelector('.good-page__header');
+  const headerTopBars = [...siteHeader.querySelectorAll(':scope > .header__top')];
+  let navigationFrame;
+  function positionNavigation() {
+    navigationFrame = null;
+    if (!stickyGalleryLayout.matches) return;
+    const topHeight = headerTopBars.reduce((total, bar) => total + bar.getBoundingClientRect().height, 0);
+    const value = Math.max(0, topHeight - window.scrollY) + 'px';
+    if (document.body.style.getPropertyValue('--client-nav-shift') !== value) document.body.style.setProperty('--client-nav-shift', value);
+  }
+  function sizeGalleryOffset() {
+    if (!stickyGalleryLayout.matches) {
+      ['--client-nav-height', '--client-header-height', '--client-nav-shift'].forEach(name => document.body.style.removeProperty(name));
+      page.style.removeProperty('--client-gallery-top');
+      priceHeader.classList.remove('client-header-dismissed');
+      return;
+    }
+    const navigationHeight = mainHeader.getBoundingClientRect().height;
+    const topHeight = headerTopBars.reduce((total, bar) => total + bar.getBoundingClientRect().height, 0);
+    document.body.style.setProperty('--client-nav-height', navigationHeight + 'px');
+    document.body.style.setProperty('--client-header-height', (topHeight + navigationHeight) + 'px');
+    const value = Math.ceil(navigationHeight + priceHeader.getBoundingClientRect().height + 16) + 'px';
+    if (page.style.getPropertyValue('--client-gallery-top') !== value) page.style.setProperty('--client-gallery-top', value);
+    positionNavigation();
+  }
+  const galleryHeaderObserver = new ResizeObserver(sizeGalleryOffset);
+  [mainHeader, priceHeader, ...headerTopBars].forEach(header => galleryHeaderObserver.observe(header));
+  window.addEventListener('scroll', () => {
+    if (stickyGalleryLayout.matches && !navigationFrame) navigationFrame = requestAnimationFrame(positionNavigation);
+  }, {passive:true});
+  stickyGalleryLayout.addEventListener('change', sizeGalleryOffset);
+  priceHeader.querySelector('.good-page__header-close').addEventListener('click', event => {
+    if (!stickyGalleryLayout.matches) return;
+    event.preventDefault();
+    event.stopPropagation();
+    priceHeader.classList.add('client-header-dismissed');
+  });
+  sizeGalleryOffset();
+
   // The mobile CTA delegates to the original purchase control.
   const mobilePurchase = document.createElement('div');
   mobilePurchase.className = 'client-mobile-purchase';
