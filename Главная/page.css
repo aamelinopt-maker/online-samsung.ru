@@ -2953,3 +2953,8 @@ html.client-menu-open, html.client-menu-open body { overflow: hidden; }
 .client-mobile-drawer a:hover, .client-mobile-group > summary:hover { color: var(--ink); }
 .client-mobile-drawer .client-mobile-accent:hover { color: #d20000; }
 .client-mobile-drawer :is(a,button,summary):focus-visible { outline: 2px solid var(--ink); outline-offset: -3px; }
+#new .m-product-visual img, #hits .m-product-visual img, #daily-picks .m-daily-visual img {
+ pointer-events: none;
+ user-select: none;
+ -webkit-user-drag: none;
+}
