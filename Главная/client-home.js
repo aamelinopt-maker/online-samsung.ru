@@ -344,6 +344,32 @@
     new ResizeObserver(updateNews).observe(newsRail);
     updateNews();
   }
+  // The template's ecosystem tabs, including keyboard navigation and motion.
+  const ecosystemTabs=$$('#ecosystem [role=tab]');
+  let ecosystemAnimation;
+  function selectEcosystemTab(selected,focus=false){
+    ecosystemAnimation?.cancel();
+    ecosystemTabs.forEach(tab=>{
+      const active=tab===selected;
+      tab.setAttribute('aria-selected',String(active));tab.tabIndex=active?0:-1;
+      const panel=$('#'+tab.getAttribute('aria-controls'));panel.hidden=!active;
+      if(active&&!reduce.matches)ecosystemAnimation=panel.animate([{opacity:0,transform:'translateY(4px)'},{opacity:1,transform:'translateY(0)'}],{duration:230,easing:'ease-out'});
+    });
+    if(focus)selected.focus({preventScroll:true});
+  }
+  ecosystemTabs.forEach((tab,index)=>{
+    tab.addEventListener('click',()=>selectEcosystemTab(tab));
+    tab.addEventListener('keydown',event=>{
+      let next;
+      if(event.key==='ArrowRight')next=(index+1)%ecosystemTabs.length;
+      else if(event.key==='ArrowLeft')next=(index+ecosystemTabs.length-1)%ecosystemTabs.length;
+      else if(event.key==='Home')next=0;
+      else if(event.key==='End')next=ecosystemTabs.length-1;
+      else return;
+      event.preventDefault();selectEcosystemTab(ecosystemTabs[next],true);
+    });
+  });
+  reduce.addEventListener('change',event=>{if(event.matches)ecosystemAnimation?.cancel();});
   // Match the template's accordion animation; native details work without JS.
   const faqState=new WeakMap();
   $$('#faq details').forEach(details=>{
@@ -383,6 +409,7 @@
     '#new .m-section-heading','#new .m-collection-panels',
     '#hits .m-section-heading','#hits .m-collection-panels',
     '.client-tab-campaign .tv-copy','#televisions .tv-copy',
+    '#ecosystem .campaign-art','#ecosystem .campaign-copy',
     '#why-buy .section-title-row',
     '#why-buy .client-reasons-grid > a','#customer-reviews .section-title-row',
     '#customer-reviews .client-reviews-layout','#journal .section-title-row',
