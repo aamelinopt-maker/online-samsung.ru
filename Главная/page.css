@@ -2663,7 +2663,7 @@ h1, h2 {
 .m-category-media { display: block; }
 [data-image-matte] > img { mix-blend-mode: darken; filter: brightness(var(--matte-boost,1)); }
 .m-product-visual > span, .m-daily-visual > span { position: absolute; inset: 0; display: block; }
-.client-home .m-product-card { min-height: 0; border-radius: var(--card-radius); border-color: var(--line); background: var(--surface); }
+.client-home .m-product-card { min-height: 0; border-radius: var(--card-radius); border-color: transparent; background: var(--surface); }
 .client-home .m-product-card:hover { background: #eee; }
 .client-home .faq-contact { border: 1px solid var(--line); border-radius: var(--card-radius); }
 .client-home #faq .faq-contact img { right: -75px; bottom: 4px; }
@@ -2977,7 +2977,7 @@ h1, h2 {
 .client-reason-proof strong { font-family: SamsungSharp,Arial,sans-serif; font-size: clamp(36px,3.1vw,46px); line-height: 1.15; letter-spacing: -.04em; font-weight: 700; }
 .client-reason-proof > span { font-size: 13px; line-height: 1.5; color: var(--line); }
 .client-reason-store-bottom > .text-link { margin-top: 28px; font-size: 13px; }
-.client-reason-card { display: flex; flex-direction: column; padding: 28px 30px 30px; border-color: var(--line); background: var(--surface); transition: background .3s; }
+.client-reason-card { display: flex; flex-direction: column; padding: 28px 30px 30px; border-color: transparent; background: var(--surface); transition: background .3s; }
 .client-reason-card-top { position: relative; margin-bottom: 24px; }
 .client-reason-symbol { display: grid; place-items: center; width: 64px; height: 64px; }
 .client-reason-symbol > img { display: block; width: 64px; height: 64px; object-fit: contain; }
