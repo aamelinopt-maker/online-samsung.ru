@@ -187,62 +187,87 @@
   $$('.m-collection').forEach(section=>{
     const tabs=$$('[role=tab]',section),panels=$$('[role=tabpanel]',section);
     const frame=$('.m-collection-panels',section);
-    let frameWidth=0;
-    const cardAnimations=new Set();
-    function alignTeaserTitles(panel){
-      if(!['new','hits'].includes(section.id)||panel.hidden)return;
-      const titles=$$('.client-hit-native h3',panel);
-      titles.forEach(title=>title.style.minHeight='0');
-      const height=Math.ceil(Math.max(0,...titles.map(title=>title.getBoundingClientRect().height)));
-      titles.forEach(title=>title.style.minHeight=height+'px');
+    let frameWidth=0,activeTab=tabs.find(tab=>tab.getAttribute('aria-selected')==='true')||tabs[0];
+    let activePanel=$('#'+activeTab.getAttribute('aria-controls')),requestedTab=activeTab,selectionSerial=0,renderSerial=0;
+    const panelAnimations=new Map(),warmups=new Map();
+    function settle(){
+      panels.forEach(panel=>{const on=panel===activePanel;panel.hidden=!on;panel.inert=!on;panel.setAttribute('aria-hidden',String(!on));});
+      panelAnimations.forEach(animation=>animation.cancel());panelAnimations.clear();
     }
-    // Match the template's largest-panel reservation: changing a category
-    // must not pull the next section up or shift the document scroll position.
+    // Reserve one title grid and panel height across every category. Preparing
+    // hidden panels is synchronous; it never exposes them during a paint.
     function keepHeight(force=false){
       const width=frame.getBoundingClientRect().width;
       if(!width||(!force&&Math.abs(width-frameWidth)<.5))return;
-      frameWidth=width;
-      let height=0;
+      frameWidth=width;warmups.clear();renderSerial++;settle();
+      const saved=panels.map(panel=>({panel,hidden:panel.hidden,style:panel.getAttribute('style')}));
       panels.forEach(panel=>{
-        const hidden=panel.hidden,style=panel.getAttribute('style');
         panel.style.cssText+=';position:absolute;visibility:hidden;pointer-events:none;width:'+width+'px;';
-        panel.hidden=false;alignTeaserTitles(panel);
-        height=Math.max(height,panel.getBoundingClientRect().height);
+        panel.hidden=false;
+      });
+      const titles=$$('.client-hit-native h3',frame);
+      titles.forEach(title=>title.style.minHeight='0');
+      const titleHeight=Math.ceil(Math.max(0,...titles.map(title=>title.getBoundingClientRect().height)));
+      titles.forEach(title=>title.style.minHeight=titleHeight+'px');
+      $$('[data-fit-image]',frame).forEach(fitImage);
+      const height=Math.ceil(Math.max(...panels.map(panel=>panel.getBoundingClientRect().height)));
+      saved.forEach(({panel,hidden,style})=>{
         panel.hidden=hidden;
         if(style===null)panel.removeAttribute('style');else panel.setAttribute('style',style);
       });
-      frame.style.minHeight=Math.ceil(height)+'px';
+      frame.style.minHeight=height+'px';
     }
-    function select(tab,focus=false){
-      cardAnimations.forEach(animation=>animation.cancel());cardAnimations.clear();
-      tabs.forEach(t=>{const on=t===tab;t.setAttribute('aria-selected',String(on));t.tabIndex=on?0:-1;$('#'+t.getAttribute('aria-controls')).hidden=!on;});
-      const panel=$('#'+tab.getAttribute('aria-controls'));
-      alignTeaserTitles(panel);
-      $$('[data-fit-image]',panel).forEach(fitImage);
-      if(!reduce.matches)$$('.m-product-card',panel).forEach((card,i)=>{
-        const animation=card.animate([{opacity:0,transform:'translateY(10px)'},{opacity:1,transform:'translateY(0)'}],{duration:480,delay:i*45,easing:'cubic-bezier(.22,1,.36,1)'});
-        cardAnimations.add(animation);animation.onfinish=()=>cardAnimations.delete(animation);
+    function warm(panel){
+      if(!warmups.has(panel))warmups.set(panel,Promise.all($$('img',panel).map(async image=>{
+        image.loading='eager';
+        for(let attempt=0;attempt<2;attempt++){
+          try{await image.decode?.();}catch{}
+          if(image.complete&&image.naturalWidth)return;
+        }
+      })));
+      return warmups.get(panel);
+    }
+    function fadeTo(panel){
+      const starts=new Map(panels.filter(p=>!p.hidden).map(p=>[p,Number(getComputedStyle(p).opacity)]));
+      const serial=++renderSerial;
+      panelAnimations.forEach(animation=>animation.cancel());panelAnimations.clear();
+      activePanel=panel;
+      if(reduce.matches||typeof panel.animate!=='function'){settle();return;}
+      panels.forEach(p=>{
+        const on=p===panel;
+        p.inert=!on;p.setAttribute('aria-hidden',String(!on));
+        if(!on&&!starts.has(p)){p.hidden=true;return;}
+        p.hidden=false;
+        const animation=p.animate([{opacity:starts.get(p)??0},{opacity:on?1:0}],{duration:220,easing:'cubic-bezier(.22,1,.36,1)',fill:'both'});
+        panelAnimations.set(p,animation);
       });
+      Promise.allSettled([...panelAnimations.values()].map(animation=>animation.finished)).then(()=>{if(serial===renderSerial)settle();});
+    }
+    async function select(tab,focus=false){
       if(focus)tab.focus({preventScroll:true});
       const list=tab.closest('.m-tablist'),r=tab.getBoundingClientRect(),lr=list.getBoundingClientRect();
       const delta=r.left<lr.left?r.left-lr.left:r.right>lr.right?r.right-lr.right:0;
       if(delta)list.scrollBy({left:delta,behavior:reduce.matches?'instant':'smooth'});
+      if(tab===requestedTab)return;
+      requestedTab=tab;const ticket=++selectionSerial;
+      if(tab===activeTab){frame.removeAttribute('aria-busy');return;}
+      const panel=$('#'+tab.getAttribute('aria-controls'));
+      frame.setAttribute('aria-busy','true');await warm(panel);
+      if(ticket!==selectionSerial)return;
+      frame.removeAttribute('aria-busy');activeTab=tab;
+      tabs.forEach(t=>{const on=t===tab;t.setAttribute('aria-selected',String(on));t.tabIndex=on?0:-1;});
+      fadeTo(panel);
       $('[data-collection-status]',section).textContent=tab.textContent+'. Товаров: '+$$('.m-product-card',panel).length;
     }
     tabs.forEach((tab,i)=>{
-      const warm=()=>$$('img',$('#'+tab.getAttribute('aria-controls'))).forEach(image=>{image.loading='eager';image.decode?.().catch(()=>{});});
-      tab.addEventListener('pointerenter',warm,{passive:true});tab.addEventListener('focus',warm);
+      const prepare=()=>warm($('#'+tab.getAttribute('aria-controls')));
+      tab.addEventListener('pointerenter',prepare,{passive:true});tab.addEventListener('pointerdown',prepare,{passive:true});tab.addEventListener('focus',prepare);
       tab.onclick=()=>select(tab);
       tab.onkeydown=e=>{let next;if(e.key==='ArrowRight')next=(i+1)%tabs.length;if(e.key==='ArrowLeft')next=(i+tabs.length-1)%tabs.length;if(e.key==='Home')next=0;if(e.key==='End')next=tabs.length-1;if(next!==undefined){e.preventDefault();select(tabs[next],true);}};
     });
-    panels.forEach(panel=>{
-      const grid=$('[data-product-grid]',panel);
-      new ResizeObserver(()=>{if(!panel.hidden)alignTeaserTitles(panel);}).observe(grid);
-      if(!panel.hidden)alignTeaserTitles(panel);
-    });
     keepHeight();new ResizeObserver(()=>keepHeight()).observe(frame);
     document.fonts.ready.then(()=>keepHeight(true));
-    reduce.addEventListener('change',event=>{if(event.matches){cardAnimations.forEach(animation=>animation.cancel());cardAnimations.clear();}});
+    reduce.addEventListener('change',event=>{if(event.matches){renderSerial++;settle();}});
   });
 
   function slider({slides,buttons,prev,next,stage,activeClass='is-active',loop=true,onChange}){
@@ -406,15 +431,17 @@
     });
   });
   reduce.addEventListener('change',event=>{if(event.matches)ecosystemAnimation?.cancel();});
-  // Match the template's accordion animation; native details work without JS.
+  // Reflect the requested state immediately, including while a close animation
+  // still needs details[open] to keep the answer measurable and visible.
   const faqState=new WeakMap();
   $$('#faq details').forEach(details=>{
-    const summary=$('summary',details);
-    faqState.set(details,{requestedOpen:details.open,animation:null});
+    const summary=$('summary',details),answer=$('.faq-answer',details);
+    const state={requestedOpen:details.open,animation:null,sync(){summary.setAttribute('aria-expanded',String(this.requestedOpen));if(answer)answer.inert=!this.requestedOpen;}};
+    faqState.set(details,state);state.sync();
+    details.addEventListener('toggle',()=>{if(!state.animation){state.requestedOpen=details.open;state.sync();}});
     summary.addEventListener('click',event=>{
       event.preventDefault();
-      const state=faqState.get(details);
-      state.requestedOpen=!state.requestedOpen;
+      state.requestedOpen=!state.requestedOpen;state.sync();
       const from=details.getBoundingClientRect().height;
       if(state.animation){state.animation.cancel();state.animation=null;}
       if(reduce.matches||typeof details.animate!=='function'){details.open=state.requestedOpen;return;}
@@ -422,15 +449,15 @@
       details.open=state.requestedOpen;
       const to=details.getBoundingClientRect().height;
       details.open=true;
-      const animation=details.animate([{height:from+'px'},{height:to+'px'}],{duration:300,easing:'cubic-bezier(.22,1,.36,1)'});
+      const animation=details.animate([{height:from+'px'},{height:to+'px'}],{duration:180,easing:'cubic-bezier(.22,1,.36,1)',fill:'both'});
       state.animation=animation;
-      animation.onfinish=()=>{details.open=state.requestedOpen;state.animation=null;};
+      animation.onfinish=()=>{if(state.animation!==animation)return;state.animation=null;details.open=state.requestedOpen;state.sync();animation.cancel();};
     });
   });
   reduce.addEventListener('change',event=>{
     if(event.matches)$$('#faq details').forEach(details=>{
       const state=faqState.get(details);
-      if(state.animation){state.animation.cancel();state.animation=null;details.open=state.requestedOpen;}
+      if(state.animation){state.animation.cancel();state.animation=null;details.open=state.requestedOpen;state.sync();}
     });
   });
   $('#block-cookie-form').hidden=safe.get('cookies',false);
