@@ -2665,7 +2665,8 @@ h1, h2 {
 .m-product-visual > span, .m-daily-visual > span { position: absolute; inset: 0; display: block; }
 .client-home .m-product-card { min-height: 0; border-radius: var(--card-radius); border-color: transparent; background: var(--surface); }
 .client-home .m-product-card:hover { background: #eee; }
-.client-home .faq-contact { border: 1px solid var(--line); border-radius: var(--card-radius); }
+.client-home .faq-contact { border: 1px solid transparent; border-radius: var(--card-radius); }
+.client-home #faq details { border-color: transparent; }
 .client-home #faq .faq-contact img { right: -75px; bottom: 4px; }
 @media(max-width:1000px) { .client-home #faq .faq-contact img { bottom: 12px; } }
 .client-home #faq .faq-plus { --faq-sign-size: 24px; position: relative; justify-self: center; width: var(--faq-sign-size); height: var(--faq-sign-size); border-radius: 0; background: transparent; color: var(--ink); font-size: 0; transform: none; transition: none; }
