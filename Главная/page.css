@@ -3096,14 +3096,4 @@ html.client-menu-open, html.client-menu-open body { overflow: hidden; }
  -webkit-user-drag: none;
 }
 #ecosystem .campaign-art { pointer-events: none; -webkit-user-drag: none; user-select: none; }
-.client-home { --ui-accent: #007aff; --ui-accent-soft: color-mix(in srgb,var(--ui-accent) 8%,#fff); }
-.client-home :is(.m-tablist,.ecosystem-tabs) button:after { background: var(--ui-accent); }
-.client-home :is([data-favorite],[data-compare])[aria-pressed=true] { background: var(--ui-accent-soft); color: var(--ui-accent); }
-.client-home [data-favorite][aria-pressed=true] > .icon { fill: var(--ui-accent); }
-.client-home #faq details[open] .faq-plus { background: var(--ui-accent-soft); color: var(--ui-accent); }
-.client-home .text-link:after { background: var(--ui-accent); }
-.client-home :is(a,button,input,summary,[tabindex]):not(.hero-carousel,.hero-carousel *):focus-visible { outline: 2px solid var(--ui-accent); outline-offset: 3px; }
-:is(#new,#hits) :is(a,button):focus-visible, .client-home #faq summary:focus-visible { outline-color: var(--ui-accent); }
-.client-home #faq summary:focus-visible { outline-offset: -4px; }
-.client-home input:focus-visible { border-color: var(--ui-accent); }
 .client-faq-links { display: flex; flex-wrap: wrap; gap: 12px 24px; }
