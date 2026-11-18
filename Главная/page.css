@@ -2655,6 +2655,7 @@ h1, h2 {
     animation: none;
   }
 }
+.client-home { --card-radius: 16px; }
 .client-home .m-categories .section-heading { text-align: center; }
 .client-home .m-categories .section-heading h1 { max-width: none; margin: 0 0 16px; font-size: clamp(11px, 3.6vw, 46px); line-height: 1.15; letter-spacing: -.035em; white-space: nowrap; text-align: center; }
 .client-home .m-section-heading { justify-content: flex-start; text-align: left; }
@@ -2662,7 +2663,9 @@ h1, h2 {
 .m-category-media { display: block; }
 [data-image-matte] > img { mix-blend-mode: darken; filter: brightness(var(--matte-boost,1)); }
 .m-product-visual > span, .m-daily-visual > span { position: absolute; inset: 0; display: block; }
-.client-home .m-product-card { min-height: 0; }
+.client-home .m-product-card { min-height: 0; border-radius: var(--card-radius); border-color: var(--line); background: var(--surface); }
+.client-home .m-product-card:hover { background: #eee; }
+.client-home .faq-contact { border: 1px solid var(--line); border-radius: var(--card-radius); }
 .client-home .m-product-copy h3 { min-height: 54px; }
 .client-home .m-product-purchase { padding-top: 20px; }
 .client-novelty { position: absolute; top: 22px; left: 24px; z-index: 2; color: #64666c; font-size: 10px; font-weight: 700; letter-spacing: .08em; }
@@ -2949,7 +2952,7 @@ h1, h2 {
 .client-reasons-heading > h2 { max-width: 800px; text-align: left; }
 .client-reasons-heading > p { flex-shrink: 0; margin: 0 0 3px; max-width: 280px; font-size: 15px; line-height: 1.5; color: var(--muted); }
 .client-reasons-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); grid-auto-rows: 1fr; gap: 24px; }
-.client-reason-store, .client-reason-card { min-width: 0; border: 1px solid transparent; border-radius: var(--radius); text-decoration: none; }
+.client-reason-store, .client-reason-card { min-width: 0; border: 1px solid transparent; border-radius: var(--card-radius); text-decoration: none; }
 .client-reason-store { grid-row: span 3; display: flex; flex-direction: column; justify-content: space-between; gap: 20px; padding: 36px; background: var(--ink); color: #fff; }
 .client-reason-brand { width: 166px; height: 27px; object-fit: contain; object-position: left; filter: brightness(0) invert(1); margin-bottom: 40px; }
 .client-reason-store h3 { font-size: clamp(26px,2.25vw,32px); line-height: 1.2; letter-spacing: -.025em; margin: 0 0 18px; }
@@ -2958,13 +2961,14 @@ h1, h2 {
 .client-reason-proof strong { font-family: SamsungSharp,Arial,sans-serif; font-size: clamp(36px,3.1vw,46px); line-height: 1.15; letter-spacing: -.04em; font-weight: 700; }
 .client-reason-proof > span { font-size: 13px; line-height: 1.5; color: var(--line); }
 .client-reason-store-bottom > .text-link { margin-top: 28px; font-size: 13px; }
-.client-reason-card { display: flex; flex-direction: column; padding: 28px 30px 30px; background: var(--surface); transition: background .3s; }
+.client-reason-card { display: flex; flex-direction: column; padding: 28px 30px 30px; border-color: var(--line); background: var(--surface); transition: background .3s; }
 .client-reason-card-top { position: relative; margin-bottom: 24px; }
 .client-reason-symbol { display: grid; place-items: center; width: 64px; height: 64px; }
 .client-reason-symbol > img { display: block; width: 64px; height: 64px; object-fit: contain; }
 .client-reason-arrow { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; background: #fff; color: var(--ink); font-size: 17px; line-height: 1; transition: transform .4s var(--ease), background .3s, color .3s; }
 .client-reason-card-top > .client-reason-arrow { position: absolute; z-index: 1; top: 0; right: 0; }
 .client-reason-card h3 { font-family: SamsungSharp,Arial,sans-serif; font-size: 22px; line-height: 1.3; font-weight: 700; letter-spacing: -.018em; text-wrap: initial; margin: 0 0 11px; }
+@media(min-width:601px) { .client-reason-card h3 { min-height: 2.6em; } }
 .client-reason-card p { margin: 0; color: var(--muted); font-size: 15px; line-height: 1.6; }
 .client-reason-card:hover { background: #eee; }
 .client-reason-card:hover .client-reason-arrow { transform: translate(2px,-2px); background: var(--ink); color: #fff; }
