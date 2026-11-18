@@ -245,16 +245,17 @@
     reduce.addEventListener('change',event=>{if(event.matches){cardAnimations.forEach(animation=>animation.cancel());cardAnimations.clear();}});
   });
 
-  function slider({slides,buttons,prev,next,stage,activeClass='is-active',onChange}){
+  function slider({slides,buttons,prev,next,stage,activeClass='is-active',loop=true,onChange}){
     let index=0,startX=null,startY=null,suppressedClick=null,suppressionTimer;
     function clearSuppressedClick(){
       clearTimeout(suppressionTimer);
       if(suppressedClick){stage.removeEventListener('click',suppressedClick,true);suppressedClick=null;}
     }
     function go(value){
-      index=(value+slides.length)%slides.length;
+      index=loop?(value+slides.length)%slides.length:Math.max(0,Math.min(slides.length-1,value));
       slides.forEach((s,i)=>{const on=i===index;s.classList.toggle(activeClass,on);s.inert=!on;s.setAttribute('aria-hidden',String(!on));});
       buttons.forEach(b=>{const on=+b.dataset.go===index;b.setAttribute('aria-pressed',String(on));b.classList.toggle(activeClass,on);});
+      if(!loop){if(prev)prev.disabled=index===0;if(next)next.disabled=index===slides.length-1;}
       $$('[data-fit-image]',slides[index]).forEach(fitImage);onChange?.(index);
     }
     function manualSelect(event,value){
@@ -305,9 +306,18 @@
   new MutationObserver(autoplay).observe(document.body,{subtree:true,attributes:true,attributeFilter:['open','hidden']});
   if('IntersectionObserver' in window)new IntersectionObserver(([entry])=>{heroInView=entry.isIntersecting&&entry.intersectionRatio>=.15;autoplay();},{threshold:.15}).observe(heroStage);
   autoplay();
-  const dailySlides=$$('[data-daily-slide]');
+  function updateCarouselProgress(bar,current,total,label){
+    for(const [name,value] of Object.entries({'aria-valuemax':total,'aria-valuenow':current,'aria-valuetext':label})){
+      if(bar.getAttribute(name)!==String(value))bar.setAttribute(name,String(value));
+    }
+    const fill=$('.client-carousel-progress-fill',bar),transform='scaleX('+current/total+')';
+    if(fill.style.transform!==transform)fill.style.transform=transform;
+    const status=$('[data-carousel-status]',bar.parentElement);
+    if(status.textContent!==label)status.textContent=label;
+  }
+  const dailySlides=$$('[data-daily-slide]'),dailyProgress=$('[data-daily-progress]');
   let warmDaily=()=>{};
-  const daily=slider({slides:dailySlides,buttons:$$('[data-daily-go]').map(b=>{b.dataset.go=b.dataset.dailyGo;return b;}),prev:$('[data-daily-prev]'),next:$('[data-daily-next]'),stage:$('.m-daily-stage'),onChange:i=>{$('[data-daily-current]').textContent=String(i+1).padStart(2,'0');warmDaily(i);}});
+  const daily=slider({slides:dailySlides,buttons:[],prev:$('[data-daily-prev]'),next:$('[data-daily-next]'),stage:$('.m-daily-stage'),loop:false,onChange:i=>{updateCarouselProgress(dailyProgress,i+1,dailySlides.length,`Товар ${i+1} из ${dailySlides.length}`);warmDaily(i);}});
   // Reserve each text row across all eight slides. Visibility keeps inactive
   // slides measurable, so prices and actions share one fixed vertical grid.
   const dailyStage=$('.m-daily-stage');
@@ -338,14 +348,13 @@
   alignDailyFields();document.fonts.ready.then(alignDailyFields);
   const newsRail=$('[data-news-rail]');
   if(newsRail){
-    const cards=$$('[data-news-item]',newsRail),prev=$('[data-news-prev]'),next=$('[data-news-next]'),counter=$('[data-news-count]');
+    const cards=$$('[data-news-item]',newsRail),prev=$('[data-news-prev]'),next=$('[data-news-next]'),progress=$('[data-news-progress]');
     const step=()=>cards[0].getBoundingClientRect().width+parseFloat(getComputedStyle(newsRail).columnGap);
     function updateNews(){
       const stride=step(),first=Math.max(0,Math.min(cards.length-1,Math.round(newsRail.scrollLeft/stride)));
       const visible=Math.max(1,Math.round((newsRail.clientWidth+parseFloat(getComputedStyle(newsRail).columnGap))/stride));
-      const last=Math.min(cards.length,first+visible),pad=value=>String(value).padStart(2,'0');
-      counter.textContent=(visible===1?pad(first+1):pad(first+1)+'–'+pad(last))+' / '+pad(cards.length);
-      counter.setAttribute('aria-label',`Показаны новости с ${first+1} по ${last} из ${cards.length}`);
+      const last=Math.min(cards.length,first+visible),positions=Math.max(1,cards.length-visible+1);
+      updateCarouselProgress(progress,Math.min(first+1,positions),positions,`Показаны новости с ${first+1} по ${last} из ${cards.length}`);
       prev.disabled=newsRail.scrollLeft<=1;
       next.disabled=newsRail.scrollLeft+newsRail.clientWidth>=newsRail.scrollWidth-2;
     }
@@ -424,7 +433,7 @@
   // tab changes animate only the newly selected cards inside that frame.
   const contentReveals=$$([
     '#categories .section-heading','#categories .m-category-grid',
-    '#daily-picks .m-section-heading','#daily-picks .m-daily-stage',
+    '#daily-picks .m-section-heading','#daily-picks .m-daily-stage','#daily-picks .client-daily-footer',
     '#new .m-section-heading','#new .m-collection-panels',
     '#hits .m-section-heading','#hits .m-collection-panels',
     '.client-tab-campaign .tv-copy','#televisions .tv-copy',
