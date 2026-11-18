@@ -2698,6 +2698,9 @@ h1, h2 {
  .client-live-hero .hero-pause:hover { background: transparent; }
 }
 .client-live-hero:not([data-playing]) .hero-tab[aria-pressed=true] .hero-page-fill { transform: scaleX(1); }
+@media(prefers-reduced-motion:reduce) {
+ .client-live-hero .hero-tab[aria-pressed=true] .hero-page-fill { transform: scaleX(1) !important; }
+}
 .client-home .p-topbar > .shell { justify-content: center; }
 .client-utility { display: flex; flex-wrap: nowrap; align-items: center; gap: clamp(14px,1.4vw,24px); min-height: 44px; border-bottom: 1px solid #efefef; color: var(--muted); font-size: 14px; overflow-x: auto; scrollbar-width: none; }
 .client-utility::-webkit-scrollbar { display: none; }

@@ -281,34 +281,36 @@
     go(0);return{go,next:()=>go(index+1),get index(){return index;}};
   }
   const heroSlides=$$('[data-hero-slide]'),heroStage=$('.hero-carousel'),heroPause=$('[data-hero-pause]');
-  const hoverDevice=matchMedia('(hover:hover)'),heroInterval=5000;
+  const heroInterval=5000;
   let resetHeroClock=()=>{};
   const hero=slider({slides:heroSlides,buttons:$$('[data-hero-go]').map(b=>{b.dataset.go=b.dataset.heroGo;return b;}),stage:heroStage,onChange:i=>{heroStage.dataset.theme=heroSlides[i].dataset.theme;$('[data-hero-current]').textContent=String(i+1).padStart(2,'0');for(const index of [i,(i+1)%heroSlides.length]){const image=$('img',heroSlides[index]);image.loading='eager';image.decode?.().catch(()=>{});}resetHeroClock();}});
-  let paused=reduce.matches,timer,elapsed=0,startedAt=0,heroInView=true,heroProgress;
+  let paused=reduce.matches,heroInView=true,heroProgress;
   function syncPause(){
     heroPause.setAttribute('aria-pressed',String(paused));
     heroPause.setAttribute('aria-label',paused?'Продолжить слайдер':'Остановить слайдер');
   }
   function autoplay(){
-    if(timer!==undefined)elapsed=Math.min(heroInterval,elapsed+performance.now()-startedAt);
-    clearTimeout(timer);timer=undefined;
-    heroProgress?.pause();
-    const blocked=paused||reduce.matches||!heroInView||document.hidden||modal?.open||!menu.hidden||activeMega||heroStage.contains(document.activeElement)||(hoverDevice.matches&&heroStage.querySelector('.client-live-link:hover'));
+    const blocked=paused||reduce.matches||!heroInView||document.hidden||modal?.open||!menu.hidden||activeMega||heroStage.contains(document.activeElement);
     heroStage.dataset.playing=String(!blocked);syncPause();
-    if(heroProgress)heroProgress.currentTime=reduce.matches?heroInterval:elapsed;
-    if(!blocked){startedAt=performance.now();heroProgress?.play();timer=setTimeout(()=>hero.next(),Math.max(0,heroInterval-elapsed));}
+    if(!heroProgress)return;
+    if(blocked)heroProgress.pause();
+    else if(heroProgress.currentTime>=heroInterval)hero.next();
+    else if(heroProgress.playState!=='running')heroProgress.play();
   }
   resetHeroClock=()=>{
-    clearTimeout(timer);timer=undefined;heroProgress?.cancel();elapsed=0;
-    heroProgress=$('[data-hero-go="'+hero.index+'"] .hero-page-fill').animate([{transform:'scaleX(0)'},{transform:'scaleX(1)'}],{duration:heroInterval,fill:'both',easing:'linear'});
-    heroProgress.pause();autoplay();
+    heroProgress?.cancel();
+    const progress=$('[data-hero-go="'+hero.index+'"] .hero-page-fill').animate([{transform:'scaleX(0)'},{transform:'scaleX(1)'}],{duration:heroInterval,fill:'both',easing:'linear'});
+    heroProgress=progress;
+    // The fill animation is the only clock: its completion selects the next
+    // slide. Repeated UI events cannot reset or extend the five-second cycle.
+    progress.onfinish=()=>{if(heroProgress===progress&&heroStage.dataset.playing==='true')hero.next();};
+    progress.pause();autoplay();
   };
   heroPause.onclick=event=>{paused=!paused;if(event.detail>0)heroPause.blur();autoplay();};
   heroStage.addEventListener('focusin',autoplay);
   heroStage.addEventListener('focusout',()=>setTimeout(autoplay,0));
-  $$('.client-live-link',heroStage).forEach(link=>{link.addEventListener('pointerenter',autoplay);link.addEventListener('pointerleave',autoplay);});
   document.addEventListener('visibilitychange',autoplay);
-  reduce.addEventListener('change',autoplay);hoverDevice.addEventListener('change',autoplay);
+  reduce.addEventListener('change',autoplay);
   new MutationObserver(autoplay).observe(document.body,{subtree:true,attributes:true,attributeFilter:['open','hidden']});
   if('IntersectionObserver' in window)new IntersectionObserver(([entry])=>{heroInView=entry.isIntersecting&&entry.intersectionRatio>=.15;autoplay();},{threshold:.15}).observe(heroStage);
   resetHeroClock();
