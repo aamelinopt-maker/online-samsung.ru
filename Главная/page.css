@@ -2681,11 +2681,10 @@ h1, h2 {
 .client-live-link { display: block; width: 100%; height: 100%; }
 .client-live-link > img { display: block; width: 100%; height: 100%; max-width: none; object-fit: contain; }
 .client-live-link:focus-visible { outline: 3px solid var(--hero-control); outline-offset: -4px; }
-.client-live-hero .hero-pages { left: auto; right: 76px; bottom: 14px; width: max-content; max-width: 56%; height: 20px; padding: 0; transform: none; align-items: center; gap: 2px; color: #fff; }
+.client-live-hero .hero-pages { left: auto; right: 76px; bottom: 14px; width: max-content; max-width: 56%; height: 20px; padding: 0; transform: none; align-items: center; gap: 2px; color: var(--hero-control); }
 .client-live-hero .hero-tab { flex: 0 1 46px; min-width: 0; width: 46px; height: 44px; padding-inline: 7px; }
-.client-live-hero .hero-page-track { height: 3px; background: #bfc0c3; box-shadow: 0 0 0 1px #171717; }
-.client-live-hero .hero-tab:hover .hero-page-track { background: #fff; }
-.client-live-hero .hero-tab[aria-pressed=true] .hero-page-track { background: currentColor; }
+.client-live-hero .hero-page-track { height: 2px; background: #bfc0c3; box-shadow: 0 0 0 .5px #171717; }
+.client-live-hero .hero-tab:hover .hero-page-track { background: #bfc0c3; }
 .client-live-hero .hero-tab:focus-visible { outline: 2px solid #fff; outline-offset: -1px; box-shadow: inset 0 0 0 3px #171717; }
 .client-live-hero .hero-pause { right: 16px; bottom: 2px; opacity: .85; }
 .client-hero-mobile-count { display: none; }
@@ -2698,7 +2697,7 @@ h1, h2 {
  .client-live-hero .hero-pause { left: calc(50% + 2px); right: auto; bottom: 0; opacity: 1; font-size: 16px; padding: 0; }
  .client-live-hero .hero-pause:hover { background: transparent; }
 }
-.hero-tab[aria-pressed=true] .hero-page-fill { transform: scaleX(1); }
+.client-live-hero:not([data-playing]) .hero-tab[aria-pressed=true] .hero-page-fill { transform: scaleX(1); }
 .client-home .p-topbar > .shell { justify-content: center; }
 .client-utility { display: flex; flex-wrap: nowrap; align-items: center; gap: clamp(14px,1.4vw,24px); min-height: 44px; border-bottom: 1px solid #efefef; color: var(--muted); font-size: 14px; overflow-x: auto; scrollbar-width: none; }
 .client-utility::-webkit-scrollbar { display: none; }

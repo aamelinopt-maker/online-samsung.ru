@@ -284,19 +284,25 @@
   const hoverDevice=matchMedia('(hover:hover)'),heroInterval=5000;
   let resetHeroClock=()=>{};
   const hero=slider({slides:heroSlides,buttons:$$('[data-hero-go]').map(b=>{b.dataset.go=b.dataset.heroGo;return b;}),stage:heroStage,onChange:i=>{heroStage.dataset.theme=heroSlides[i].dataset.theme;$('[data-hero-current]').textContent=String(i+1).padStart(2,'0');for(const index of [i,(i+1)%heroSlides.length]){const image=$('img',heroSlides[index]);image.loading='eager';image.decode?.().catch(()=>{});}resetHeroClock();}});
-  let paused=reduce.matches,timer,elapsed=0,startedAt=0,heroInView=true;
+  let paused=reduce.matches,timer,elapsed=0,startedAt=0,heroInView=true,heroProgress;
   function syncPause(){
     heroPause.setAttribute('aria-pressed',String(paused));
     heroPause.setAttribute('aria-label',paused?'Продолжить слайдер':'Остановить слайдер');
   }
   function autoplay(){
-    if(timer!==undefined)elapsed+=performance.now()-startedAt;
+    if(timer!==undefined)elapsed=Math.min(heroInterval,elapsed+performance.now()-startedAt);
     clearTimeout(timer);timer=undefined;
+    heroProgress?.pause();
     const blocked=paused||reduce.matches||!heroInView||document.hidden||modal?.open||!menu.hidden||activeMega||heroStage.contains(document.activeElement)||(hoverDevice.matches&&heroStage.querySelector('.client-live-link:hover'));
     heroStage.dataset.playing=String(!blocked);syncPause();
-    if(!blocked){startedAt=performance.now();timer=setTimeout(()=>hero.next(),Math.max(0,heroInterval-elapsed));}
+    if(heroProgress)heroProgress.currentTime=reduce.matches?heroInterval:elapsed;
+    if(!blocked){startedAt=performance.now();heroProgress?.play();timer=setTimeout(()=>hero.next(),Math.max(0,heroInterval-elapsed));}
   }
-  resetHeroClock=()=>{clearTimeout(timer);timer=undefined;elapsed=0;autoplay();};
+  resetHeroClock=()=>{
+    clearTimeout(timer);timer=undefined;heroProgress?.cancel();elapsed=0;
+    heroProgress=$('[data-hero-go="'+hero.index+'"] .hero-page-fill').animate([{transform:'scaleX(0)'},{transform:'scaleX(1)'}],{duration:heroInterval,fill:'both',easing:'linear'});
+    heroProgress.pause();autoplay();
+  };
   heroPause.onclick=event=>{paused=!paused;if(event.detail>0)heroPause.blur();autoplay();};
   heroStage.addEventListener('focusin',autoplay);
   heroStage.addEventListener('focusout',()=>setTimeout(autoplay,0));
@@ -305,7 +311,7 @@
   reduce.addEventListener('change',autoplay);hoverDevice.addEventListener('change',autoplay);
   new MutationObserver(autoplay).observe(document.body,{subtree:true,attributes:true,attributeFilter:['open','hidden']});
   if('IntersectionObserver' in window)new IntersectionObserver(([entry])=>{heroInView=entry.isIntersecting&&entry.intersectionRatio>=.15;autoplay();},{threshold:.15}).observe(heroStage);
-  autoplay();
+  resetHeroClock();
   function updateCarouselProgress(bar,current,total,label){
     for(const [name,value] of Object.entries({'aria-valuemax':total,'aria-valuenow':current,'aria-valuetext':label})){
       if(bar.getAttribute(name)!==String(value))bar.setAttribute(name,String(value));
