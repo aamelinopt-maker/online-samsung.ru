@@ -173,6 +173,12 @@
     const category=box.classList.contains('m-category-media');
     const base=Math.min(r.width/w,r.height/h),scale=Math.min(r.width*(category ? 0.80 : 0.83)/((b[2]-b[0])*base),r.height*(category ? 0.78 : 0.85)/((b[3]-b[1])*base),5,1/base);
     box.style.setProperty('--fit-scale',scale);box.style.setProperty('--fit-x',(w/2-(b[0]+b[2])/2)*base*scale+'px');box.style.setProperty('--fit-y',(h/2-(b[1]+b[3])/2)*base*scale+'px');
+    // Account for the optical transform and hover zoom when choosing a raster.
+    // The bitmap canvas can be wider than its visible product/card frame.
+    if(im.hasAttribute('srcset')){
+      const sizes=Math.ceil(r.width*scale*1.04)+'px';
+      if(im.sizes!==sizes)im.sizes=sizes;
+    }
   }
   const fits=$$('[data-fit-image]');
   const observer=new ResizeObserver(entries=>entries.forEach(e=>fitImage(e.target)));
@@ -299,11 +305,24 @@
   new MutationObserver(autoplay).observe(document.body,{subtree:true,attributes:true,attributeFilter:['open','hidden']});
   if('IntersectionObserver' in window)new IntersectionObserver(([entry])=>{heroInView=entry.isIntersecting&&entry.intersectionRatio>=.15;autoplay();},{threshold:.15}).observe(heroStage);
   autoplay();
-  const daily=slider({slides:$$('[data-daily-slide]'),buttons:$$('[data-daily-go]').map(b=>{b.dataset.go=b.dataset.dailyGo;return b;}),prev:$('[data-daily-prev]'),next:$('[data-daily-next]'),stage:$('.m-daily-stage'),onChange:i=>$('[data-daily-current]').textContent=String(i+1).padStart(2,'0')});
+  const dailySlides=$$('[data-daily-slide]');
+  let warmDaily=()=>{};
+  const daily=slider({slides:dailySlides,buttons:$$('[data-daily-go]').map(b=>{b.dataset.go=b.dataset.dailyGo;return b;}),prev:$('[data-daily-prev]'),next:$('[data-daily-next]'),stage:$('.m-daily-stage'),onChange:i=>{$('[data-daily-current]').textContent=String(i+1).padStart(2,'0');warmDaily(i);}});
   // Reserve each text row across all eight slides. Visibility keeps inactive
   // slides measurable, so prices and actions share one fixed vertical grid.
   const dailyStage=$('.m-daily-stage');
-  $$('img',dailyStage).forEach(image=>{image.loading='eager';image.decode?.().catch(()=>{});});
+  warmDaily=index=>{
+    for(const i of [index,(index+1)%dailySlides.length]){
+      const image=$('img',dailySlides[i]);image.hidden=false;
+      image.loading='eager';image.decode?.().catch(()=>{});
+    }
+  };
+  if('IntersectionObserver' in window){
+    const dailyLoadObserver=new IntersectionObserver(entries=>{
+      if(entries.some(entry=>entry.isIntersecting)){warmDaily(daily.index);dailyLoadObserver.disconnect();}
+    },{rootMargin:'300px'});
+    dailyLoadObserver.observe(dailyStage);
+  }else warmDaily(daily.index);
   const dailyFields=['.m-daily-category','h3','.m-daily-variant','.m-daily-price','.m-daily-actions'];
   function alignDailyFields(){
     const rows=dailyFields.map(selector=>$$('[data-daily-slide] '+selector,dailyStage));

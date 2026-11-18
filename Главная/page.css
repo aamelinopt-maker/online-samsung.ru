@@ -3205,3 +3205,4 @@ html.client-menu-open, html.client-menu-open body { overflow: hidden; }
  -webkit-user-drag: none;
 }
 #ecosystem .campaign-art { pointer-events: none; -webkit-user-drag: none; user-select: none; }
+.client-faq-links { display: flex; flex-wrap: wrap; gap: 12px 24px; }
