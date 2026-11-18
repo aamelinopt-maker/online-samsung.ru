@@ -42,7 +42,7 @@
     $('.client-close',modal).onclick=()=>modal.close();
     if(!modal.open){
       modal.showModal();
-      if(!reduce.matches)modal.animate([{opacity:0,transform:'translateY(12px)'},{opacity:1,transform:'translateY(0)'}],{duration:250,easing:'cubic-bezier(.22,1,.36,1)'});
+      if(!reduce.matches)modal.animate([{opacity:0},{opacity:1}],{duration:180,easing:'ease-out'});
     }
     return modal;
   }
@@ -56,13 +56,13 @@
   function add(p){const found=state.cart.find(x=>x.id===p.id);if(found)found.quantity=(found.quantity||1)+1;else state.cart.push({...p,quantity:1});save();listView('cart');}
   function toggle(p,key){const found=state[key].some(x=>x.id===p.id);state[key]=found?state[key].filter(x=>x.id!==p.id):[...state[key],p];save();}
   function search(query=''){
-    show('Поиск товаров','<label for="client-search">Товары с главной страницы</label><input type="search" id="client-search" autocomplete="off" placeholder="Например, Galaxy"><div class="client-search-results" aria-live="polite"></div>');
+    show('Поиск товаров','<label for="client-search">Товары с главной страницы</label><input type="search" id="client-search" autocomplete="off" autofocus placeholder="Например, Galaxy"><div class="client-search-results" aria-live="polite"></div>');
     const input=$('input',modal),result=$('.client-search-results',modal);
     input.oninput=()=>{
       const q=input.value.trim().toLocaleLowerCase('ru'),found=q?uniqueItems.filter(p=>p.title.toLocaleLowerCase('ru').includes(q)):[];
       result.innerHTML=q?(found.length?found.slice(0,20).map(p=>'<article class="client-list-row">'+productImage(p,'')+'<div><h3><a href="'+escape(p.url)+'">'+escape(p.title)+'</a></h3><p class="client-list-price">'+escape(p.price)+'</p></div></article>').join(''):'<p>Товары не найдены.</p>'):'';
     };
-    input.value=query;input.oninput();input.focus();
+    input.value=query;input.oninput();if(document.activeElement!==input)input.focus({preventScroll:true});
   }
   function chooseCity(){
     show('Ваш город '+city+'?','<form id="client-city-form"><label>Название города<input name="city" value="'+escape(city)+'" maxlength="80" required></label><button class="button button-dark" type="submit">Да</button><p>Стоимость и сроки доставки зависят от города.</p></form>');

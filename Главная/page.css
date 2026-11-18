@@ -2869,6 +2869,7 @@ h1, h2 {
 .client-list-actions button[data-remove] { border: 0; border-radius: 0; font-size: 12px; text-decoration: underline; text-underline-offset: 3px; }
 @media(max-width:1239px) { .client-utility nav { gap: 8px; } .client-utility { gap: 8px; } .client-utility-meta { gap: 8px; } .client-account { gap: 8px; } }
 @media(max-width:767px) {
+ .client-dialog::backdrop { backdrop-filter: none; }
  .client-utility { min-height: 40px; }
  .client-home .p-topbar > .shell { gap: 8px; }
  .client-announcement { font-size: 10px!important; }
