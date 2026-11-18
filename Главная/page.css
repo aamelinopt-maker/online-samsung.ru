@@ -3066,7 +3066,7 @@ h1, h2 {
 .client-reasons-heading { align-items: flex-end; margin-bottom: 36px; }
 .client-reasons-heading > h2 { max-width: 800px; text-align: left; }
 .client-reasons-heading > p { flex-shrink: 0; margin: 0 0 3px; max-width: 280px; font-size: 15px; line-height: 1.5; color: var(--muted); }
-.client-reasons-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 24px; }
+.client-reasons-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); grid-auto-rows: 1fr; gap: 24px; }
 .client-reason-store, .client-reason-card { min-width: 0; border: 1px solid transparent; border-radius: var(--radius); text-decoration: none; }
 .client-reason-store { grid-row: span 3; display: flex; flex-direction: column; justify-content: space-between; gap: 20px; padding: 36px; background: var(--ink); color: #fff; }
 .client-reason-brand { width: 166px; height: 27px; object-fit: contain; object-position: left; filter: brightness(0) invert(1); margin-bottom: 40px; }
@@ -3103,7 +3103,7 @@ h1, h2 {
  .client-reasons-heading { align-items: flex-start; flex-direction: column; gap: 16px; }
  .client-reasons-heading > p { max-width: none; }
  .client-reasons-heading > p > br { display: none; }
- .client-reasons-grid { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 20px; }
+ .client-reasons-grid { grid-template-columns: repeat(2,minmax(0,1fr)); grid-template-rows: auto; gap: 20px; }
  .client-reason-store { grid-column: 1/-1; grid-row: auto; display: grid; grid-template-columns: minmax(0,1.25fr) minmax(0,1fr); align-items: start; gap: 24px 32px; padding: 32px; }
  .client-reason-store-copy { grid-column: 1; grid-row: 1; align-self: center; }
  .client-reason-store-bottom { grid-column: 2; grid-row: 1; justify-self: end; align-self: end; }
