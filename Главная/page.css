@@ -3091,6 +3091,7 @@ h1, h2 {
 @media(min-width:1101px) {
  .client-reason-store-copy, .client-reason-store-bottom { display: contents; }
  .client-reason-store .client-reason-brand, .client-reason-store h3 { margin-bottom: 0; }
+ .client-reason-store-intro .client-reason-brand { margin-bottom: 32px; }
  .client-reason-store-bottom > .text-link { margin-top: 0; align-self: flex-start; }
 }
 @media(min-width:1440px) {
