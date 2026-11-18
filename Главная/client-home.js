@@ -31,10 +31,13 @@
       modal=document.createElement('dialog');modal.id='client-dialog';modal.className='client-dialog';modal.setAttribute('aria-labelledby','client-dialog-title');
       modal.addEventListener('click',e=>{if(e.target===modal)modal.close();});
       modal.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();e.stopPropagation();modal.close();}});
-      modal.addEventListener('close',()=>{$$('#search-toggle,[data-cart-open],[data-favorites-open],[data-compare-open]').forEach(el=>el.setAttribute('aria-expanded','false'));});
+      modal.addEventListener('close',()=>{if(modal.open)return;modal.replaceChildren();modal.removeAttribute('aria-labelledby');$$('#search-toggle,[data-cart-open],[data-favorites-open],[data-compare-open]').forEach(el=>el.setAttribute('aria-expanded','false'));});
       document.body.append(modal);
+      autoplayObserver.observe(modal,{attributes:true,attributeFilter:['open']});
+      $$('#search-toggle,[data-cart-open],[data-favorites-open],[data-compare-open]').forEach(el=>el.setAttribute('aria-controls','client-dialog'));
     }
     modal.innerHTML='<div class="client-dialog-header"><h2 id="client-dialog-title"></h2><button type="button" class="client-close" aria-label="Закрыть">×</button></div><div class="client-dialog-content"></div>';
+    modal.setAttribute('aria-labelledby','client-dialog-title');
     $('h2',modal).textContent=title;$('.client-dialog-content',modal).innerHTML=body;
     $('.client-close',modal).onclick=()=>modal.close();
     if(!modal.open){
@@ -43,26 +46,26 @@
     }
     return modal;
   }
-  const demo='<p class="client-demo-note">Демонстрация офлайн. Заказ и оплата доступны на сайте магазина.</p>';
+  function productImage(p,alt=p.title){return '<img src="'+escape(p.thumbnail||p.image)+'" width="105" height="120" loading="lazy" decoding="async" alt="'+escape(alt)+'">';}
   function listView(key){
     const titles={cart:'Корзина',favorites:'Избранное',compare:'Сравнение'};
-    show(titles[key],demo+(state[key].length?state[key].map(p=>'<article class="client-list-row"><a href="'+escape(p.url)+'"><img src="'+escape(p.image)+'" alt="'+escape(p.title)+'"></a><div><h3><a href="'+escape(p.url)+'">'+escape(p.title)+'</a></h3><p class="client-list-price">'+escape(p.price)+'</p><div class="client-list-actions">'+(key==='cart'?'<button data-quantity="-1" data-id="'+escape(p.id)+'" aria-label="Уменьшить количество">−</button><span>'+p.quantity+'</span><button data-quantity="1" data-id="'+escape(p.id)+'" aria-label="Увеличить количество">+</button>':'')+'<button data-remove="'+escape(p.id)+'">Удалить</button></div></div></article>').join(''):'<p>Здесь пока нет товаров.</p>')+'<a class="button button-dark" href="https://online-samsung.ru/" target="_blank" rel="noopener">Открыть магазин <span aria-hidden="true">↗</span></a>');
+    show(titles[key],(key==='cart'?'<p>Оформление заказа и оплата — на online-samsung.ru.</p>':'')+(state[key].length?state[key].map(p=>'<article class="client-list-row"><a href="'+escape(p.url)+'">'+productImage(p)+'</a><div><h3><a href="'+escape(p.url)+'">'+escape(p.title)+'</a></h3><p class="client-list-price">'+escape(p.price)+'</p><div class="client-list-actions">'+(key==='cart'?'<button data-quantity="-1" data-id="'+escape(p.id)+'" aria-label="Уменьшить количество">−</button><span>'+p.quantity+'</span><button data-quantity="1" data-id="'+escape(p.id)+'" aria-label="Увеличить количество">+</button>':'')+'<button data-remove="'+escape(p.id)+'">Удалить</button></div></div></article>').join(''):'<p>Здесь пока нет товаров.</p>')+'<a class="button button-dark" href="https://online-samsung.ru/" target="_blank" rel="noopener">Открыть магазин <span aria-hidden="true">↗</span></a>');
     $$('[data-remove]',modal).forEach(el=>el.onclick=()=>{state[key]=state[key].filter(p=>p.id!==el.dataset.remove);save();listView(key);});
     $$('[data-quantity]',modal).forEach(el=>el.onclick=()=>{const p=state.cart.find(p=>p.id===el.dataset.id);p.quantity+=+el.dataset.quantity;state.cart=state.cart.filter(p=>p.quantity>0);save();listView('cart');});
   }
   function add(p){const found=state.cart.find(x=>x.id===p.id);if(found)found.quantity=(found.quantity||1)+1;else state.cart.push({...p,quantity:1});save();listView('cart');}
   function toggle(p,key){const found=state[key].some(x=>x.id===p.id);state[key]=found?state[key].filter(x=>x.id!==p.id):[...state[key],p];save();}
   function search(query=''){
-    show('Поиск по сохранённым товарам','<label for="client-search">Поиск по сайту</label><input type="search" id="client-search" autocomplete="off" placeholder="Например, Galaxy"><div class="client-search-results" aria-live="polite"></div><p>Поиск работает по товарам, сохранённым с главной страницы.</p>');
+    show('Поиск товаров','<label for="client-search">Товары с главной страницы</label><input type="search" id="client-search" autocomplete="off" placeholder="Например, Galaxy"><div class="client-search-results" aria-live="polite"></div>');
     const input=$('input',modal),result=$('.client-search-results',modal);
     input.oninput=()=>{
       const q=input.value.trim().toLocaleLowerCase('ru'),found=q?uniqueItems.filter(p=>p.title.toLocaleLowerCase('ru').includes(q)):[];
-      result.innerHTML=q?(found.length?found.slice(0,20).map(p=>'<article class="client-list-row"><img src="'+escape(p.image)+'" alt=""><div><h3><a href="'+escape(p.url)+'">'+escape(p.title)+'</a></h3><p class="client-list-price">'+escape(p.price)+'</p></div></article>').join(''):'<p>Совпадений в сохранённых товарах нет.</p>'):'';
+      result.innerHTML=q?(found.length?found.slice(0,20).map(p=>'<article class="client-list-row">'+productImage(p,'')+'<div><h3><a href="'+escape(p.url)+'">'+escape(p.title)+'</a></h3><p class="client-list-price">'+escape(p.price)+'</p></div></article>').join(''):'<p>Товары не найдены.</p>'):'';
     };
     input.value=query;input.oninput();input.focus();
   }
   function chooseCity(){
-    show('Ваш город '+city+'?','<form id="client-city-form"><label>Название города<input name="city" value="'+escape(city)+'" maxlength="80" required></label><button class="button button-dark" type="submit">Да</button><p>Изменить город можно в этой копии. Условия доставки уточняются на сайте магазина.</p></form>');
+    show('Ваш город '+city+'?','<form id="client-city-form"><label>Название города<input name="city" value="'+escape(city)+'" maxlength="80" required></label><button class="button button-dark" type="submit">Да</button><p>Стоимость и сроки доставки зависят от города.</p></form>');
     $('form',modal).onsubmit=e=>{e.preventDefault();city=new FormData(e.target).get('city').trim()||city;$$('[data-city]').forEach(el=>el.textContent=city);modal.close();};
   }
   document.addEventListener('click',e=>{
@@ -78,7 +81,7 @@
     else if(el.hasAttribute('data-city-open'))chooseCity();
     else if(el.hasAttribute('data-accept-cookies')){safe.set('cookies',true);$('#block-cookie-form').hidden=true;}
     else if(el.hasAttribute('data-notifications'))show('Уведомления','<p>Нет уведомлений</p>');
-    else if(el.hasAttribute('data-login')||el.hasAttribute('data-notify'))show('Продолжить на сайте магазина','<p>Вход в аккаунт и отправка заявок требуют подключения к магазину. В офлайн-копии данные не отправляются.</p><a class="button button-dark" href="https://online-samsung.ru/user/login" target="_blank" rel="noopener">Открыть магазин <span aria-hidden="true">↗</span></a>');
+    else if(el.hasAttribute('data-login'))show('Личный кабинет','<p>Войдите в аккаунт на online-samsung.ru.</p><a class="button button-dark" href="https://online-samsung.ru/user/login" target="_blank" rel="noopener">Войти <span aria-hidden="true">↗</span></a>');
     else handled=false;
     if(handled){e.preventDefault();if(el.matches('#search-toggle,[data-cart-open],[data-favorites-open],[data-compare-open]'))el.setAttribute('aria-expanded','true');}
   });
@@ -167,8 +170,11 @@
   window.addEventListener('resize',()=>{const desktop=getComputedStyle(desktopNav).display!=='none';if(desktop&&!menu.hidden)closeMobileMenu(false,true);if(activeMega){if(!desktop)closeMega();else openMega(activeMega);}});
   menuButton.onclick=()=>{if(menu.hidden)openMobileMenu();else closeMobileMenu();};
 
+  const fitGeometry=new WeakMap();
   function fitImage(box){
     const im=$('img',box);if(!im)return;const r=box.getBoundingClientRect();if(!r.width||!r.height)return;
+    const previous=fitGeometry.get(box);
+    if(previous&&previous.width===r.width&&previous.height===r.height)return;
     const b=JSON.parse(box.dataset.bounds),w=+im.getAttribute('width'),h=+im.getAttribute('height');
     const category=box.classList.contains('m-category-media');
     const base=Math.min(r.width/w,r.height/h),scale=Math.min(r.width*(category ? 0.80 : 0.83)/((b[2]-b[0])*base),r.height*(category ? 0.78 : 0.85)/((b[3]-b[1])*base),5,1/base);
@@ -179,6 +185,7 @@
       const sizes=Math.ceil(r.width*scale*1.04)+'px';
       if(im.sizes!==sizes)im.sizes=sizes;
     }
+    fitGeometry.set(box,{width:r.width,height:r.height});
   }
   const fits=$$('[data-fit-image]');
   const observer=new ResizeObserver(entries=>entries.forEach(e=>fitImage(e.target)));
@@ -336,7 +343,9 @@
   heroStage.addEventListener('focusout',()=>setTimeout(autoplay,0));
   document.addEventListener('visibilitychange',autoplay);
   reduce.addEventListener('change',autoplay);
-  new MutationObserver(autoplay).observe(document.body,{subtree:true,attributes:true,attributeFilter:['open','hidden']});
+  // Only menus and the dialog can pause autoplay; product/FAQ mutations cannot.
+  const autoplayObserver=new MutationObserver(autoplay);
+  for(const element of [menu,megaBackdrop])autoplayObserver.observe(element,{attributes:true,attributeFilter:['hidden']});
   if('IntersectionObserver' in window)new IntersectionObserver(([entry])=>{heroInView=entry.isIntersecting&&entry.intersectionRatio>=.15;autoplay();},{threshold:.15}).observe(heroStage);
   resetHeroClock();
   function updateCarouselProgress(bar,current,total,label){
@@ -397,7 +406,8 @@
     }
     prev.addEventListener('click',()=>moveNews(-1));
     next.addEventListener('click',()=>moveNews(1));
-    newsRail.addEventListener('scroll',updateNews,{passive:true});
+    let newsFrame=0;
+    newsRail.addEventListener('scroll',()=>{if(!newsFrame)newsFrame=requestAnimationFrame(()=>{newsFrame=0;updateNews();});},{passive:true});
     newsRail.addEventListener('keydown',event=>{
       if(event.key==='ArrowLeft'||event.key==='ArrowRight'){event.preventDefault();moveNews(event.key==='ArrowRight'?1:-1);}
       if(event.key==='Home'||event.key==='End'){event.preventDefault();newsRail.scrollTo({left:event.key==='Home'?0:newsRail.scrollWidth,behavior:reduce.matches?'instant':'smooth'});}
@@ -407,6 +417,23 @@
   }
   // The template's ecosystem tabs, including keyboard navigation and motion.
   const ecosystemTabs=$$('#ecosystem [role=tab]');
+  const ecosystemFrame=$('#ecosystem .ecosystem-panels');
+  let ecosystemWidth=0;
+  function alignEcosystemPanels(force=false){
+    const width=ecosystemFrame.getBoundingClientRect().width;
+    if(!width||(!force&&width===ecosystemWidth))return;
+    ecosystemWidth=width;ecosystemFrame.style.removeProperty('min-height');
+    let height=parseFloat(getComputedStyle(ecosystemFrame).minHeight)||0;
+    for(const panel of ecosystemFrame.children){
+      const hidden=panel.hidden,style=panel.getAttribute('style');
+      panel.style.cssText+=';position:absolute;visibility:hidden;width:'+width+'px;';panel.hidden=false;
+      height=Math.max(height,panel.getBoundingClientRect().height);panel.hidden=hidden;
+      if(style===null)panel.removeAttribute('style');else panel.setAttribute('style',style);
+    }
+    ecosystemFrame.style.minHeight=Math.ceil(height)+'px';
+  }
+  alignEcosystemPanels();new ResizeObserver(()=>alignEcosystemPanels()).observe(ecosystemFrame);
+  document.fonts.ready.then(()=>alignEcosystemPanels(true));
   let ecosystemAnimation;
   function selectEcosystemTab(selected,focus=false){
     ecosystemAnimation?.cancel();
@@ -414,7 +441,7 @@
       const active=tab===selected;
       tab.setAttribute('aria-selected',String(active));tab.tabIndex=active?0:-1;
       const panel=$('#'+tab.getAttribute('aria-controls'));panel.hidden=!active;
-      if(active&&!reduce.matches)ecosystemAnimation=panel.animate([{opacity:0,transform:'translateY(4px)'},{opacity:1,transform:'translateY(0)'}],{duration:230,easing:'ease-out'});
+      if(active&&!reduce.matches)ecosystemAnimation=panel.animate([{opacity:0},{opacity:1}],{duration:230,easing:'ease-out'});
     });
     if(focus)selected.focus({preventScroll:true});
   }
@@ -462,10 +489,8 @@
   });
   $('#block-cookie-form').hidden=safe.get('cookies',false);
   $$('a[target=_blank]').forEach(el=>el.rel='noopener');
-  $$('#search-toggle,[data-cart-open],[data-favorites-open],[data-compare-open]').forEach(el=>el.setAttribute('aria-controls','client-dialog'));
   sync();document.fonts.ready.then(()=>fits.forEach(fitImage));
-  // The template reveals collection headings and the whole panel frame once;
-  // tab changes animate only the newly selected cards inside that frame.
+  // Reveal collection frames once; category changes crossfade inside them.
   const contentReveals=$$([
     '#categories .section-heading','#categories .m-category-grid',
     '#daily-picks .m-section-heading','#daily-picks .m-daily-stage','#daily-picks .client-daily-footer',
