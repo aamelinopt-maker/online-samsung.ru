@@ -24,6 +24,7 @@
       const count=el.dataset.count==='cart'?state.cart.reduce((n,p)=>n+(p.quantity||1),0):state[el.dataset.count].length;
       el.textContent=count;el.hidden=!count;
     });
+    renderMiniCart();
   }
   function save(){Object.entries(state).forEach(([k,v])=>safe.set(k,v));sync();}
   function show(title,body){
@@ -31,10 +32,10 @@
       modal=document.createElement('dialog');modal.id='client-dialog';modal.className='client-dialog';modal.setAttribute('aria-labelledby','client-dialog-title');
       modal.addEventListener('click',e=>{if(e.target===modal)modal.close();});
       modal.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();e.stopPropagation();modal.close();}});
-      modal.addEventListener('close',()=>{if(modal.open)return;modal.replaceChildren();modal.removeAttribute('aria-labelledby');$$('#search-toggle,[data-cart-open],[data-favorites-open],[data-compare-open]').forEach(el=>el.setAttribute('aria-expanded','false'));});
+      modal.addEventListener('close',()=>{if(modal.open)return;modal.replaceChildren();modal.removeAttribute('aria-labelledby');$$('#search-toggle,[data-favorites-open],[data-compare-open]').forEach(el=>el.setAttribute('aria-expanded','false'));});
       document.body.append(modal);
       autoplayObserver.observe(modal,{attributes:true,attributeFilter:['open']});
-      $$('#search-toggle,[data-cart-open],[data-favorites-open],[data-compare-open]').forEach(el=>el.setAttribute('aria-controls','client-dialog'));
+      $$('#search-toggle,[data-favorites-open],[data-compare-open]').forEach(el=>el.setAttribute('aria-controls','client-dialog'));
     }
     modal.innerHTML='<div class="client-dialog-header"><h2 id="client-dialog-title"></h2><button type="button" class="client-close" aria-label="Закрыть">×</button></div><div class="client-dialog-content"></div>';
     modal.setAttribute('aria-labelledby','client-dialog-title');
@@ -47,6 +48,69 @@
     return modal;
   }
   function productImage(p,alt=p.title){return '<img src="'+escape(p.thumbnail||p.image)+'" width="105" height="120" loading="lazy" decoding="async" alt="'+escape(alt)+'">';}
+  const cartTrigger = $('.nav-actions [data-cart-open]');
+  const cartAnchor = document.createElement('div');
+  cartAnchor.className = 'client-cart-anchor';
+  const miniCart = document.createElement('div');
+  miniCart.className = 'client-mini-cart';
+  miniCart.id = 'client-mini-cart';
+  miniCart.hidden = true;
+  miniCart.innerHTML = `
+    <div class="client-mini-cart-card" role="region" aria-label="Мини-корзина">
+      <ul class="client-mini-cart-items"></ul>
+      <div class="client-mini-cart-total"><span>Общая стоимость</span><strong></strong></div>
+      <div class="client-mini-cart-actions"><a class="client-mini-cart-link" href="${escape(cartTrigger.href)}">В корзину</a></div>
+    </div>`;
+  cartTrigger.before(cartAnchor);
+  cartAnchor.append(cartTrigger, miniCart);
+  cartTrigger.setAttribute('aria-controls', miniCart.id);
+  const cartMoney = new Intl.NumberFormat('ru-RU');
+  let cartCloseTimer;
+
+  function closeMiniCart() {
+    clearTimeout(cartCloseTimer);
+    miniCart.hidden = true;
+    cartTrigger.setAttribute('aria-expanded', 'false');
+  }
+
+  function openMiniCart() {
+    clearTimeout(cartCloseTimer);
+    if (!state.cart.length) return;
+    miniCart.hidden = false;
+    cartTrigger.setAttribute('aria-expanded', 'true');
+  }
+
+  function renderMiniCart() {
+    $('.client-mini-cart-items', miniCart).innerHTML = state.cart.map(product =>
+      `<li class="client-mini-cart-item"><a href="${escape(product.url)}">${productImage(product, '')}<span>${escape(product.title)}</span></a></li>`
+    ).join('');
+    const total = state.cart.reduce((sum, product) => sum + Number(String(product.price).replace(/\D/g, '')) * product.quantity, 0);
+    $('.client-mini-cart-total strong', miniCart).textContent = `${cartMoney.format(total)} ₽`;
+    if (!state.cart.length) closeMiniCart();
+  }
+
+  cartAnchor.addEventListener('pointerenter', event => {
+    if (event.pointerType !== 'touch') openMiniCart();
+  });
+  cartAnchor.addEventListener('pointerleave', () => {
+    clearTimeout(cartCloseTimer);
+    cartCloseTimer = setTimeout(() => {
+      if (!cartAnchor.contains(document.activeElement) && !cartAnchor.matches(':hover')) closeMiniCart();
+    }, 120);
+  });
+  cartAnchor.addEventListener('focusin', event => {
+    if (event.target.matches(':focus-visible')) openMiniCart();
+  });
+  cartAnchor.addEventListener('focusout', event => {
+    if (!cartAnchor.contains(event.relatedTarget) && !cartAnchor.matches(':hover')) closeMiniCart();
+  });
+  cartAnchor.addEventListener('keydown', event => {
+    if (event.key !== 'Escape' || miniCart.hidden) return;
+    event.preventDefault();
+    cartTrigger.focus();
+    closeMiniCart();
+  });
+
   function listView(key){
     const titles={cart:'Корзина',favorites:'Избранное',compare:'Сравнение'};
     show(titles[key],(key==='cart'?'<p>Оформление заказа и оплата — на online-samsung.ru.</p>':'')+(state[key].length?state[key].map(p=>'<article class="client-list-row"><a href="'+escape(p.url)+'">'+productImage(p)+'</a><div><h3><a href="'+escape(p.url)+'">'+escape(p.title)+'</a></h3><p class="client-list-price">'+escape(p.price)+'</p><div class="client-list-actions">'+(key==='cart'?'<button data-quantity="-1" data-id="'+escape(p.id)+'" aria-label="Уменьшить количество">−</button><span>'+p.quantity+'</span><button data-quantity="1" data-id="'+escape(p.id)+'" aria-label="Увеличить количество">+</button>':'')+'<button data-remove="'+escape(p.id)+'">Удалить</button></div></div></article>').join(''):'<p>Здесь пока нет товаров.</p>')+'<a class="button button-dark" href="https://online-samsung.ru/" target="_blank" rel="noopener">Открыть магазин <span aria-hidden="true">↗</span></a>');
@@ -74,30 +138,32 @@
     if(el.hasAttribute('data-add'))add(products[el.dataset.add]);
     else if(el.hasAttribute('data-favorite'))toggle(products[el.dataset.favorite],'favorites');
     else if(el.hasAttribute('data-compare'))toggle(products[el.dataset.compare],'compare');
-    else if(el.hasAttribute('data-cart-open'))listView('cart');
     else if(el.hasAttribute('data-favorites-open'))listView('favorites');
     else if(el.hasAttribute('data-compare-open'))listView('compare');
     else if(el.id==='search-toggle')search();
     else if(el.hasAttribute('data-city-open'))chooseCity();
     else if(el.hasAttribute('data-accept-cookies')){safe.set('cookies',true);$('#block-cookie-form').hidden=true;}
-    else if(el.hasAttribute('data-notifications'))show('Уведомления','<p>Нет уведомлений</p>');
     else if(el.hasAttribute('data-login'))show('Личный кабинет','<p>Войдите в аккаунт на online-samsung.ru.</p><a class="button button-dark" href="https://online-samsung.ru/user/login" target="_blank" rel="noopener">Войти <span aria-hidden="true">↗</span></a>');
     else handled=false;
-    if(handled){e.preventDefault();if(el.matches('#search-toggle,[data-cart-open],[data-favorites-open],[data-compare-open]'))el.setAttribute('aria-expanded','true');}
+    if(handled){e.preventDefault();if(el.matches('#search-toggle,[data-favorites-open],[data-compare-open]'))el.setAttribute('aria-expanded','true');}
   });
   document.addEventListener('submit',e=>{
     if(e.target.matches('.footer__search')){e.preventDefault();search($('input',e.target).value);}
   });
   const menuButton=$('#menu-toggle'),menu=$('#mobile-nav');
+  const menuToggles=$$('#menu-toggle,[data-mobile-catalog]');
   const mobileBackdrop=$('[data-mobile-menu-backdrop]'),mobileClose=$('[data-mobile-menu-close]');
+  let mobileTrigger;
   let mobileAnimation,mobileBackdropAnimation,mobileClosing=false,mobileScrollY=0,mobileInert=[];
-  function openMobileMenu(){
+  function openMobileMenu(trigger){
     if(!menu.hidden)return;
+    mobileTrigger=trigger;
     closeMega();mobileScrollY=scrollY;menu.hidden=false;mobileBackdrop.hidden=false;
     document.documentElement.classList.add('client-menu-open');
-    mobileInert=$$('.site-header,.p-topbar,#main-content,.site-footer,.client-cookies,.skip-link').map(el=>[el,el.inert]);
+    mobileInert=$$('.site-header,.p-topbar,#main-content,.site-footer,.client-cookies,.skip-link,.client-bottom-nav').map(el=>[el,el.inert]);
     mobileInert.forEach(([el])=>el.inert=true);
-    menuButton.setAttribute('aria-expanded','true');menuButton.setAttribute('aria-label','Закрыть меню');
+    menuToggles.forEach(el=>el.setAttribute('aria-expanded','true'));
+    menuButton.setAttribute('aria-label','Закрыть меню');
     if(!reduce.matches){
       mobileAnimation=menu.animate([{transform:'translateX(-100%)'},{transform:'translateX(0)'}],{duration:280,easing:'cubic-bezier(.22,1,.36,1)'});
       mobileBackdropAnimation=mobileBackdrop.animate([{opacity:0},{opacity:1}],{duration:220,easing:'ease-out'});
@@ -112,9 +178,10 @@
       menu.hidden=true;mobileBackdrop.hidden=true;mobileClosing=false;
       document.documentElement.classList.remove('client-menu-open');
       mobileInert.forEach(([el,wasInert])=>el.inert=wasInert);mobileInert=[];
-      menuButton.setAttribute('aria-expanded','false');menuButton.setAttribute('aria-label','Открыть меню');
+      menuToggles.forEach(el=>el.setAttribute('aria-expanded','false'));
+      menuButton.setAttribute('aria-label','Открыть меню');
       window.scrollTo({top:mobileScrollY,behavior:'instant'});
-      if(restoreFocus)menuButton.focus({preventScroll:true});
+      if(restoreFocus)requestAnimationFrame(()=>{if(menu.hidden)mobileTrigger.focus({preventScroll:true});});
     };
     if(immediate||reduce.matches){finish();return;}
     mobileClosing=true;
@@ -168,7 +235,9 @@
   document.addEventListener('click',e=>{if(activeMega&&!siteHeader.contains(e.target))closeMega();});
   document.addEventListener('scroll',e=>{if(e.target===document&&activeMega)closeMega();},true);
   window.addEventListener('resize',()=>{const desktop=getComputedStyle(desktopNav).display!=='none';if(desktop&&!menu.hidden)closeMobileMenu(false,true);if(activeMega){if(!desktop)closeMega();else openMega(activeMega);}});
-  menuButton.onclick=()=>{if(menu.hidden)openMobileMenu();else closeMobileMenu();};
+  menuToggles.forEach(trigger=>trigger.addEventListener('click',()=>{
+    if(menu.hidden)openMobileMenu(trigger);else closeMobileMenu();
+  }));
 
   const fitGeometry=new WeakMap();
   function fitImage(box){
