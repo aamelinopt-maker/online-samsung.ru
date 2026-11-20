@@ -2,13 +2,12 @@
 (() => {
   'use strict';
   const page = document.querySelector('.good-page--client-layout');
-  const data = document.getElementById('client-fulfillment-data');
-  if (!page || !data) return;
-  const {stock} = JSON.parse(data.textContent);
+  if (!page) return;
   const ui = () => window.samsungOffline;
   const escape = value => String(value).replace(/[&<>"']/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]));
   const cityKey = city => city.trim().toLocaleLowerCase('ru-RU').replace(/ё/g, 'е').replace(/[.\s-]+/g, ' ');
-  const suggestions = [...new Set(['Москва', 'Санкт-Петербург', 'Московская область', 'Ленинградская область', ...stock.stores.map(store => store.city)])];
+  const storeCities = [...page.querySelectorAll('.shop-item[data-city-name]')].map(store => store.dataset.cityName);
+  const suggestions = [...new Set(['Москва', 'Санкт-Петербург', 'Московская область', 'Ленинградская область', ...storeCities])];
   const normalizeCity = text => {
     const key = cityKey(text);
     if (['спб', 'питер', 'санкт петербург'].includes(key)) return 'Санкт-Петербург';
@@ -25,11 +24,7 @@
       cityButton.setAttribute('aria-haspopup', 'dialog');
       cityButton.setAttribute('aria-label', 'Город получения: ' + state.city + '. Изменить город');
     }
-    document.querySelectorAll('.header__location-link').forEach(link => { link.textContent = state.city; });
-    const region = document.querySelector('.header__location-switcher');
-    if (region) region.dataset.city = state.city;
-    const question = document.querySelector('.region-switcher__city');
-    if (question) question.textContent = 'Ваш город ' + state.city + '?';
+    document.querySelectorAll('[data-home-chrome] [data-city]').forEach(city => { city.textContent = state.city; });
   }
   function chooseCity() {
     const dialog = ui().show('Город получения', `<form class="client-city-form"><label for="client-receiving-city">Ваш город</label><input id="client-receiving-city" name="city" list="client-receiving-cities" autocomplete="address-level2" required minlength="2" maxlength="80" value="${escape(state.city)}"><datalist id="client-receiving-cities">${suggestions.map(city => `<option value="${escape(city)}"></option>`).join('')}</datalist><p>Выберите город получения.</p><button class="btn btn--dark" type="submit">Выбрать город</button></form>`, 'client-installment-dialog client-fulfillment-dialog client-receiving-dialog');
@@ -43,7 +38,6 @@
       state.city = normalizeCity(value);
       try { localStorage.setItem('samsung-offline:fulfillment', JSON.stringify({city: state.city})); } catch {}
       render();
-      document.querySelector('.region-switcher')?.style.setProperty('display', 'none');
       dialog.close();
     };
     dialog.querySelector('input').addEventListener('input', event => event.target.setCustomValidity(''));

@@ -30,35 +30,15 @@
     arrangeSpecifications();
   }
   const warranty = page.querySelector('.client-warranty');
-  const promotions = page.querySelector('.product_stocks .badges');
-  if (promotions) {
-    const badges = [...promotions.querySelectorAll('.badge:not(.badges-arrow)')];
-    const all = promotions.querySelector('.client-all-promos');
-    function fitPromotions() {
-      if (!promotions.clientWidth || !all) return;
-      badges.forEach(badge => badge.classList.remove('client-promo-overflow'));
-      let visible = badges.length;
-      const rowCount = () => {
-        let rows = 0, bottom = -Infinity;
-        for (const item of [...badges.slice(0, visible), all]) {
-          const rect = item.getBoundingClientRect();
-          if (rect.top >= bottom - 1) rows++;
-          bottom = Math.max(bottom, rect.bottom);
-        }
-        return rows;
-      };
-      while (visible && rowCount() > 2) {
-        badges[--visible].classList.add('client-promo-overflow');
-      }
-    }
-    let previousWidth;
-    new ResizeObserver(entries => {
-      const width = entries[0].contentRect.width;
-      if (width !== previousWidth) { previousWidth = width; fitPromotions(); }
-    }).observe(promotions);
-    document.fonts.ready.then(fitPromotions);
-    window.addEventListener('load', fitPromotions);
-    fitPromotions();
+  const warrantySummary = warranty.querySelector('summary');
+  function preserveModalGutter() {
+    const root = document.documentElement;
+    const scrollGap = Math.max(0, innerWidth - root.getBoundingClientRect().width);
+    root.style.setProperty('--client-modal-scroll-gap', `${scrollGap}px`);
+  }
+  function showMobileWarranty() {
+    preserveModalGutter();
+    window.samsungOffline.show('Официальная гарантия Samsung', warranty.querySelector('.client-warranty-popover').innerHTML, 'client-warranty-dialog');
   }
   document.addEventListener('click', event => {
     if (warranty && !warranty.contains(event.target)) warranty.open = false;
@@ -66,177 +46,151 @@
   document.addEventListener('keydown', event => {
     if (event.key === 'Escape' && warranty?.open) {
       warranty.open = false;
-      warranty.querySelector('summary').focus();
+      warrantySummary.focus();
     }
   });
-  const content = page.querySelector('.good-page__content');
-  const purchase = page.querySelector('.good-page__description');
-  const parameters = page.querySelector('.client-parameters-column');
-  const priceCard = page.querySelector('.client-price-card');
-  const mainBuying = page.querySelector('.good-page__buying');
-  const compactLayout = window.matchMedia('(max-width: 1599px)');
   const mobileLayout = window.matchMedia('(max-width: 700px)');
-  const productMeta = page.querySelector('.client-product-meta');
-  const galleryColumn = page.querySelector('.client-gallery-column');
-  const productRating = page.querySelector('.client-rating');
-  const productActions = page.querySelector('.good-page__action-data');
-  const stockState = priceCard.querySelector('.client-stock');
-  const allSpecifications = parameters.querySelector('.client-all-specs');
-  const mobilePriceHeader = document.createElement('div');
-  mobilePriceHeader.className = 'client-price-header';
-  // Original anchors restore the existing desktop DOM after a mobile resize.
-  const desktopSlots = [productMeta, productHeading, parameters, productRating,
-    productActions, stockState, allSpecifications].map(node => {
-    const anchor = document.createComment('mobile layout restore point');
-    node.before(anchor);
-    return {node, anchor};
-  });
-  let wasMobile = false;
-  document.body.classList.add('client-product-responsive');
-  function arrangeProduct() {
-    if (mobileLayout.matches) {
-      content.insertBefore(productMeta, galleryColumn);
-      content.insertBefore(productHeading, galleryColumn);
-      content.insertBefore(productRating, galleryColumn);
-      purchase.prepend(parameters);
-      priceCard.insertBefore(mobilePriceHeader, priceCard.querySelector('.good-page__price-info'));
-      mobilePriceHeader.append(productActions);
-      priceCard.insertBefore(stockState, mainBuying);
-      parameters.append(allSpecifications);
-      wasMobile = true;
-      return;
-    }
-    if (wasMobile) {
-      desktopSlots.forEach(({node, anchor}) => anchor.after(node));
-      mobilePriceHeader.remove();
-      wasMobile = false;
-    }
-    // Keep the original compact/tablet and three-column desktop behavior.
-    if (compactLayout.matches) {
-      const target = priceCard.querySelector('.client-payment-options');
-      if (parameters.parentElement !== priceCard || parameters.nextElementSibling !== target) priceCard.insertBefore(parameters, target);
-    } else if (parameters.parentElement !== content) {
-      content.insertBefore(parameters, purchase);
-    }
-    priceCard.insertBefore(stockState, mainBuying);
-  }
-  compactLayout.addEventListener('change', arrangeProduct);
-  mobileLayout.addEventListener('change', arrangeProduct);
-  arrangeProduct();
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+  const overview = page.querySelector('.good-page__content');
+  const mainBuying = overview.querySelector('.good-page__buying');
+  const footer = document.querySelector('[data-home-footer]');
+  const showPurchaseOnScroll = (headerBottom, footerLimit) =>
+    mainBuying.getBoundingClientRect().bottom <= headerBottom &&
+    (!footer || footer.getBoundingClientRect().top >= footerLimit);
 
-  // Sticky gallery applies only to the two-column desktop layout.
-  const stickyGalleryLayout = window.matchMedia('(min-width:701px) and (max-width:1599px)');
-  const siteHeader = document.querySelector('.header');
-  const mainHeader = document.getElementById('head');
+  if ('IntersectionObserver' in window && !reducedMotion.matches) {
+    const revealItems = page.querySelectorAll('#features #stream-container, #characteristics .client-spec-group, #accessories .catalog__grid-item, #reviews_ratings .reviews-ratings__item, #product_faq .client-faq-list');
+    const observer = new IntersectionObserver(entries => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) continue;
+        entry.target.classList.add('client-content-visible');
+        observer.unobserve(entry.target);
+      }
+    }, {threshold:0.06, rootMargin:'0px 0px -18px 0px'});
+    for (const item of revealItems) {
+      if (item.getClientRects().length && item.getBoundingClientRect().top < innerHeight) continue;
+      item.classList.add('client-content-reveal');
+      observer.observe(item);
+    }
+  }
+
+  // Keep the native single-open FAQ and animate the height between its two states.
+  let faqMotion;
+  reducedMotion.addEventListener('change', event => {
+    if (event.matches) faqMotion?.animation.finish();
+  });
+  for (const item of page.querySelectorAll('.client-faq-item')) {
+    const summary = item.querySelector('summary');
+    summary.setAttribute('aria-expanded', String(item.open));
+    item.addEventListener('toggle', () => {
+      if (faqMotion?.item !== item) summary.setAttribute('aria-expanded', String(item.open));
+    });
+    summary.addEventListener('click', event => {
+      if (reducedMotion.matches) {
+        summary.setAttribute('aria-expanded', String(!item.open));
+        return;
+      }
+      event.preventDefault();
+      if (faqMotion && faqMotion.item !== item) faqMotion.animation.finish();
+      const from = item.getBoundingClientRect().height;
+      const open = faqMotion?.item === item ? !faqMotion.open : !item.open;
+      faqMotion?.animation.cancel();
+      item.open = false;
+      const closedHeight = item.getBoundingClientRect().height;
+      item.open = true;
+      const to = open ? item.getBoundingClientRect().height : closedHeight;
+      summary.setAttribute('aria-expanded', String(open));
+      const animation = item.animate([{height: `${from}px`}, {height: `${to}px`}], {
+        duration: 180,
+        easing: 'cubic-bezier(.22,1,.36,1)'
+      });
+      faqMotion = {item, open, animation};
+      animation.onfinish = () => {
+        if (faqMotion?.animation !== animation) return;
+        item.open = open;
+        faqMotion = null;
+      };
+    });
+  }
+
+  // Keep the purchase bar below the visible portion of the site header.
+  const homeChrome = document.querySelector('[data-home-chrome]');
+  const siteHeader = homeChrome.querySelector('.site-header');
   const priceHeader = page.querySelector('.good-page__header');
-  const headerTopBars = [...siteHeader.querySelectorAll(':scope > .header__top')];
+  function positionHomeHeader() {
+    const visible = Math.max(0, siteHeader.getBoundingClientRect().bottom);
+    const priceHeight = priceHeader.getBoundingClientRect().height;
+    const priceBottom = visible + priceHeight;
+    const show = !mobileLayout.matches && showPurchaseOnScroll(visible, priceBottom) &&
+      !priceHeader.classList.contains('client-header-dismissed');
+    priceHeader.classList.toggle('scrolled', show);
+    priceHeader.inert = !show;
+    const sectionTop = Math.ceil(show ? priceBottom : visible);
+    document.body.style.setProperty('--client-nav-height', visible + 'px');
+    document.body.style.setProperty('--client-section-top', sectionTop + 'px');
+    page.style.setProperty('--client-gallery-top', sectionTop + 16 + 'px');
+  }
   let navigationFrame;
-  function positionNavigation() {
-    navigationFrame = null;
-    if (!stickyGalleryLayout.matches) return;
-    const topHeight = headerTopBars.reduce((total, bar) => total + bar.getBoundingClientRect().height, 0);
-    const value = Math.max(0, topHeight - window.scrollY) + 'px';
-    if (document.body.style.getPropertyValue('--client-nav-shift') !== value) document.body.style.setProperty('--client-nav-shift', value);
-  }
-  function sizeGalleryOffset() {
-    if (!stickyGalleryLayout.matches) {
-      ['--client-nav-height', '--client-header-height', '--client-nav-shift'].forEach(name => document.body.style.removeProperty(name));
-      page.style.removeProperty('--client-gallery-top');
-      priceHeader.classList.remove('client-header-dismissed');
-      return;
-    }
-    const navigationHeight = mainHeader.getBoundingClientRect().height;
-    const topHeight = headerTopBars.reduce((total, bar) => total + bar.getBoundingClientRect().height, 0);
-    document.body.style.setProperty('--client-nav-height', navigationHeight + 'px');
-    document.body.style.setProperty('--client-header-height', (topHeight + navigationHeight) + 'px');
-    const value = Math.ceil(navigationHeight + priceHeader.getBoundingClientRect().height + 16) + 'px';
-    if (page.style.getPropertyValue('--client-gallery-top') !== value) page.style.setProperty('--client-gallery-top', value);
-    positionNavigation();
-  }
-  const galleryHeaderObserver = new ResizeObserver(sizeGalleryOffset);
-  [mainHeader, priceHeader, ...headerTopBars].forEach(header => galleryHeaderObserver.observe(header));
+  const galleryHeaderObserver = new ResizeObserver(positionHomeHeader);
+  [homeChrome, priceHeader, mainBuying, page].forEach(element => galleryHeaderObserver.observe(element));
   window.addEventListener('scroll', () => {
-    if (stickyGalleryLayout.matches && !navigationFrame) navigationFrame = requestAnimationFrame(positionNavigation);
+    if (navigationFrame) return;
+    navigationFrame = requestAnimationFrame(() => {
+      navigationFrame = null;
+      positionHomeHeader();
+    });
   }, {passive:true});
-  stickyGalleryLayout.addEventListener('change', sizeGalleryOffset);
+  mobileLayout.addEventListener('change', positionHomeHeader);
   priceHeader.querySelector('.good-page__header-close').addEventListener('click', event => {
-    if (!stickyGalleryLayout.matches) return;
     event.preventDefault();
-    event.stopPropagation();
     priceHeader.classList.add('client-header-dismissed');
+    positionHomeHeader();
   });
-  sizeGalleryOffset();
+  positionHomeHeader();
 
-  // The mobile CTA delegates to the original purchase control.
+  // Keep the mobile purchase controls in view and reserve space below the page.
+  const mobileDock = document.querySelector('.client-mobile-dock');
   const mobilePurchase = document.createElement('div');
   mobilePurchase.className = 'client-mobile-purchase';
-  mobilePurchase.hidden = true;
   mobilePurchase.setAttribute('role', 'region');
   mobilePurchase.setAttribute('aria-label', 'Покупка товара');
   mobilePurchase.innerHTML = '<button type="button" class="client-mobile-warranty" aria-haspopup="dialog"></button><div class="client-mobile-purchase-row"><strong class="client-mobile-purchase-price"></strong><button type="button" class="btn btn--dark client-mobile-purchase-buy">Купить</button></div>';
   const mobileWarranty = mobilePurchase.querySelector('.client-mobile-warranty');
-  mobileWarranty.innerHTML = warranty.querySelector('summary').innerHTML;
-  mobileWarranty.addEventListener('click', () => {
-    window.samsungOffline.show('Официальная гарантия Samsung', warranty.querySelector('.client-warranty-popover').innerHTML, 'client-installment-dialog client-warranty-dialog');
+  mobileWarranty.innerHTML = warrantySummary.innerHTML;
+  mobileWarranty.addEventListener('click', showMobileWarranty);
+  warrantySummary.addEventListener('click', event => {
+    if (!mobileLayout.matches) return;
+    event.preventDefault();
+    showMobileWarranty();
   });
-  document.body.append(mobilePurchase);
-  mobilePurchase.querySelector('.client-mobile-purchase-buy').addEventListener('click', () => {
-    page.querySelector('.client-cart-button button').click();
-  });
+  const mainPrice = overview.querySelector('.good-page__price-current .price__current');
+  const mainBuy = mainBuying.querySelector('.client-cart-button button');
+  const mobilePrice = mobilePurchase.querySelector('.client-mobile-purchase-price');
+  const mobileBuy = mobilePurchase.querySelector('.client-mobile-purchase-buy');
+  function syncMobilePurchase() {
+    mobilePrice.textContent = mainPrice.textContent.trim();
+    mobileBuy.disabled = mainBuy.disabled;
+  }
+  function updateMobileDockVisibility() {
+    const keyboardOpen = window.visualViewport && window.visualViewport.height < innerHeight * .75;
+    mobileDock.hidden = !!keyboardOpen;
+  }
+  function updateWarrantyTrigger() {
+    if (mobileLayout.matches) warrantySummary.setAttribute('aria-haspopup', 'dialog');
+    else warrantySummary.removeAttribute('aria-haspopup');
+  }
+  syncMobilePurchase();
+  updateWarrantyTrigger();
+  updateMobileDockVisibility();
+  mobileDock.prepend(mobilePurchase);
+  const purchaseObserver = new MutationObserver(syncMobilePurchase);
+  purchaseObserver.observe(mainPrice, {subtree: true, childList: true, characterData: true});
+  purchaseObserver.observe(mainBuy, {attributes: true, attributeFilter: ['disabled']});
   new ResizeObserver(() => {
-    const height = Math.ceil(mobilePurchase.getBoundingClientRect().height);
-    if (height && document.body.style.getPropertyValue('--client-purchase-height') !== height + 'px') {
-      document.body.style.setProperty('--client-purchase-height', height + 'px');
-    }
-  }).observe(mobilePurchase);
-  let purchaseFrame;
-  let observedBottomMenu;
-  const bottomMenuObserver = new ResizeObserver(() => updateMobilePurchase());
-  function updateMobilePurchase() {
-    if (purchaseFrame) return;
-    purchaseFrame = requestAnimationFrame(() => {
-      purchaseFrame = null;
-      const bottomMenu = document.querySelector('.bottom_menu');
-      if (bottomMenu !== observedBottomMenu) {
-        if (observedBottomMenu) bottomMenuObserver.unobserve(observedBottomMenu);
-        if (bottomMenu) bottomMenuObserver.observe(bottomMenu);
-        observedBottomMenu = bottomMenu;
-      }
-      const menu = bottomMenu?.getBoundingClientRect();
-      const menuHeight = menu && menu.width && menu.bottom > 0 && menu.top < innerHeight && getComputedStyle(bottomMenu).visibility !== 'hidden' ? Math.max(0, innerHeight - menu.top) : 0;
-      const menuOffset = menuHeight + 'px';
-      if (document.body.style.getPropertyValue('--client-bottom-menu-height') !== menuOffset) document.body.style.setProperty('--client-bottom-menu-height', menuOffset);
-      const safeInset = menuHeight ? '0px' : 'env(safe-area-inset-bottom)';
-      if (mobilePurchase.style.getPropertyValue('--client-purchase-safe-inset') !== safeInset) mobilePurchase.style.setProperty('--client-purchase-safe-inset', safeInset);
-      const cookie = document.querySelector('#block-cookie-form')?.getBoundingClientRect();
-      const cookieHeight = cookie && cookie.width && cookie.bottom > 0 && cookie.top < innerHeight ? Math.max(0, innerHeight - cookie.top) : 0;
-      const modalOpen = !!document.querySelector('dialog[open]') || [...document.querySelectorAll('.ui-widget-overlay, #cboxOverlay')].some(el => el.getBoundingClientRect().height > 0 && getComputedStyle(el).visibility !== 'hidden');
-      const keyboardOpen = window.visualViewport && window.visualViewport.height < innerHeight * .75;
-      const coveredBottom = Math.max(menuHeight, cookieHeight);
-      const hidden = !mobileLayout.matches || modalOpen || keyboardOpen;
-      if (mobilePurchase.hidden !== !!hidden) mobilePurchase.hidden = !!hidden;
-      const offset = coveredBottom + 'px';
-      if (mobilePurchase.style.bottom !== offset) mobilePurchase.style.bottom = offset;
-      const price = page.querySelector('.good-page__price-current .price__current').textContent.trim();
-      if (mobilePurchase.querySelector('strong').textContent !== price) mobilePurchase.querySelector('strong').textContent = price;
-      const original = page.querySelector('.client-cart-button button');
-      mobilePurchase.querySelector('.client-mobile-purchase-buy').disabled = original.disabled;
-      if (mobileLayout.matches && cookieNotice?.getAnimations({subtree: true}).some(animation => animation.playState === 'running')) updateMobilePurchase();
-    });
-  }
-  const cookieNotice = document.querySelector('#block-cookie-form');
-  if (cookieNotice) {
-    new ResizeObserver(updateMobilePurchase).observe(cookieNotice);
-    ['transitionrun', 'transitionend', 'animationstart', 'animationend'].forEach(event => cookieNotice.addEventListener(event, updateMobilePurchase));
-  }
-  new MutationObserver(records => {
-    if (records.some(record => !mobilePurchase.contains(record.target))) updateMobilePurchase();
-  }).observe(document.body, {subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ['open', 'style', 'class', 'hidden', 'disabled']});
-  window.addEventListener('scroll', updateMobilePurchase, {passive: true});
-  window.addEventListener('resize', updateMobilePurchase);
-  window.visualViewport?.addEventListener('resize', updateMobilePurchase);
-  mobileLayout.addEventListener('change', updateMobilePurchase);
-  updateMobilePurchase();
+    document.documentElement.style.setProperty('--client-mobile-dock-height', `${mobileDock.offsetHeight}px`);
+  }).observe(mobileDock);
+  window.visualViewport?.addEventListener('resize', updateMobileDockVisibility);
+  mobileLayout.addEventListener('change', updateWarrantyTrigger);
 
   // Keep the desktop preview rail and swipe between photos on mobile.
   const gallery = page.querySelector('.product-gallery');
@@ -246,106 +200,239 @@
     const active = thumbs.findIndex(thumb => thumb.parentElement.classList.contains('product-gallery__nav-item--active'));
     return active < 0 ? 0 : active;
   }
-  let photoTransition = false;
-  const reducedPhotoMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
   function movePhoto(direction) {
-    if (photoTransition) return;
-    const index = Math.max(0, Math.min(thumbs.length - 1, currentPhoto() + direction));
-    if (index === currentPhoto()) return;
-    const photo = galleryImage.querySelector('.product-gallery__image-product');
-    const animate = mobileLayout.matches && !reducedPhotoMotion.matches;
-    const outgoing = animate ? photo.cloneNode() : null;
-    if (outgoing) {
-      outgoing.className = 'client-gallery-outgoing';
-      outgoing.setAttribute('aria-hidden', 'true');
-      galleryImage.append(outgoing);
-      photoTransition = true;
-    }
-    thumbs[index]?.click();
-    if (outgoing) {
-      const timing = {duration:280, easing:'cubic-bezier(.22,1,.36,1)', fill:'both'};
-      const animations = [
-        outgoing.animate([{transform:'translateX(0)'}, {transform:`translateX(${-direction * 100}%)`}], timing),
-        photo.animate([{transform:`translateX(${direction * 100}%)`}, {transform:'translateX(0)'}], timing)
-      ];
-      Promise.all(animations.map(animation => animation.finished)).catch(() => {}).finally(() => {
-        outgoing.remove();
-        animations.forEach(animation => animation.cancel());
-        photoTransition = false;
-      });
-    }
+    const current = currentPhoto();
+    const next = Math.max(0, Math.min(thumbs.length - 1, current + direction));
+    if (next !== current) selectPhoto(next);
+  }
+  function swipeDirection(start, end, minDistance = 45) {
+    const dx = end.clientX - start.clientX;
+    const dy = end.clientY - start.clientY;
+    if (Math.abs(dx) <= minDistance || Math.abs(dx) <= Math.abs(dy) * 1.3) return 0;
+    return dx < 0 ? 1 : -1;
+  }
+  for (const track of page.querySelectorAll('#stream-container .sc-11 > .sc-1')) {
+    const slides = [...track.parentElement.querySelectorAll(':scope > input[type="radio"]')];
+    let start;
+    track.addEventListener('touchstart', event => {
+      start = event.touches.length === 1 ? event.touches[0] : null;
+    }, {passive: true});
+    track.addEventListener('touchend', event => {
+      if (!start) return;
+      const direction = swipeDirection(start, event.changedTouches[0], 30);
+      start = null;
+      if (!direction) return;
+      const selected = slides.findIndex(slide => slide.checked);
+      if (selected >= 0) slides[(selected + direction + slides.length) % slides.length].checked = true;
+    }, {passive: true});
+    track.addEventListener('touchcancel', () => { start = null; });
   }
   let touchStart, suppressPhotoClick = false;
   galleryImage.addEventListener('touchstart', event => {
-    const touch = event.touches[0];
-    touchStart = {x: touch.clientX, y: touch.clientY};
+    touchStart = event.touches.length === 1 ? event.touches[0] : null;
     suppressPhotoClick = false;
   }, {passive: true});
   galleryImage.addEventListener('touchend', event => {
     if (!mobileLayout.matches || !touchStart) return;
-    const touch = event.changedTouches[0];
-    const dx = touch.clientX - touchStart.x, dy = touch.clientY - touchStart.y;
+    const direction = swipeDirection(touchStart, event.changedTouches[0]);
     touchStart = null;
-    if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy) * 1.3) {
+    if (direction) {
       event.preventDefault();
       suppressPhotoClick = true;
-      movePhoto(dx < 0 ? 1 : -1);
+      movePhoto(direction);
     }
   }, {passive: false});
   galleryImage.addEventListener('click', event => {
     if (suppressPhotoClick) { event.preventDefault(); event.stopImmediatePropagation(); suppressPhotoClick = false; }
   }, true);
-  function sizePreviewRail() {
-    if (mobileLayout.matches) return;
-    const height = galleryImage.getBoundingClientRect().height;
-    if (!height) return;
-    const value = height + 'px';
-    if (gallery.style.getPropertyValue('--client-photo-height') !== value) {
-      gallery.style.setProperty('--client-photo-height', value);
-      const nav = window.jQuery(gallery).find('.product-gallery__nav');
-      if (nav.hasClass('slick-initialized')) nav.slick('setPosition');
+  const rail = gallery.querySelector('.client-gallery-rail');
+  const prevPhotos = gallery.querySelector('.client-gallery-arrow--prev');
+  const nextPhotos = gallery.querySelector('.client-gallery-arrow--next');
+  const photo = galleryImage.querySelector('.product-gallery__image-product');
+  const motion = () => reducedMotion.matches ? 'instant' : 'smooth';
+  function updateRailArrows() {
+    prevPhotos.disabled = rail.scrollTop < 1;
+    nextPhotos.disabled = rail.scrollTop + rail.clientHeight >= rail.scrollHeight - 1;
+  }
+  new ResizeObserver(updateRailArrows).observe(rail);
+  updateRailArrows();
+  rail.addEventListener('scroll', updateRailArrows, {passive:true});
+  for (const [button, direction] of [[prevPhotos, -1], [nextPhotos, 1]]) {
+    button.addEventListener('click', () => {
+      rail.scrollBy({top: direction * thumbs[0].parentElement.getBoundingClientRect().height, behavior: motion()});
+    });
+  }
+  let photoFade;
+  function selectPhoto(index) {
+    const thumb = thumbs[index];
+    if (!thumb) return;
+    const changed = galleryImage.dataset.item !== String(index);
+    thumbs.forEach((item, i) => {
+      item.parentElement.classList.toggle('product-gallery__nav-item--active', i === index);
+      if (i === index) item.setAttribute('aria-current', 'true');
+      else item.removeAttribute('aria-current');
+    });
+    photo.src = thumb.href;
+    galleryImage.href = thumb.href;
+    galleryImage.dataset.item = String(index);
+    if (changed && !reducedMotion.matches) {
+      photo.decode().then(() => {
+        if (galleryImage.dataset.item !== String(index) || reducedMotion.matches) return;
+        photoFade?.cancel();
+        photoFade = photo.animate([{opacity:.25}, {opacity:1}], {duration:430, easing:'cubic-bezier(.22,1,.36,1)'});
+      }).catch(() => {});
     }
   }
-  new ResizeObserver(sizePreviewRail).observe(galleryImage);
-  function configureGallery() {
-    const $ = window.jQuery;
-    const nav = $('.good-page--client-layout .product-gallery__nav');
-    if (!nav.hasClass('slick-initialized')) return;
-    if (nav[0].dataset.clientVertical === 'true') { sizePreviewRail(); nav.slick('setPosition'); return; }
-    nav[0].dataset.clientVertical = 'true';
-    sizePreviewRail();
-    const options = Object.assign({}, nav.slick('getSlick').originalSettings, {
-      vertical: true,
-      verticalSwiping: true,
-      slidesToShow: 5,
-      slidesToScroll: 1,
-      arrows: true,
-      dots: false,
-      infinite: false,
-      appendArrows: nav,
-      prevArrow: '<button type="button" class="arrow-top" aria-label="Предыдущие фото"></button>',
-      nextArrow: '<button type="button" class="arrow-down" aria-label="Следующие фото"></button>',
-      responsive: [
-        { breakpoint: 480, settings: { slidesToShow: 4, slidesToScroll: 1, vertical: true, verticalSwiping: true } }
-      ]
-    });
-    nav.slick('unslick');
-    nav.slick(options);
-    nav.slick('setPosition');
-    nav.find('a').each(function () {
-      this.setAttribute('aria-label', 'Показать фото ' + (Number(this.dataset.productGalleryItem ?? this.dataset.galleryItem) + 1));
-    });
-  }
-  window.jQuery('.good-page--client-layout .product-gallery__nav').one('init.clientLayout', () => setTimeout(configureGallery, 0));
-  window.addEventListener('load', configureGallery);
-  let resizing;
-  window.addEventListener('resize', () => {
-    clearTimeout(resizing);
-    resizing = setTimeout(configureGallery, 150);
+  thumbs.forEach((thumb, index) => thumb.addEventListener('click', event => {
+    event.preventDefault();
+    selectPhoto(index);
+  }));
+
+  const galleryDialog = document.createElement('dialog');
+  galleryDialog.className = 'offline-dialog client-gallery-dialog';
+  galleryDialog.setAttribute('aria-label', 'Фотографии товара');
+  galleryDialog.innerHTML = `
+    <header class="client-gallery-view-header">
+      <h2 class="client-gallery-view-model"></h2>
+      <p class="client-gallery-view-variant"></p>
+    </header>
+    <button type="button" class="offline-close" aria-label="Закрыть фото" autofocus>×</button>
+    <div class="client-gallery-view-stage">
+      <img class="client-gallery-view-image" alt="Фото товара">
+    </div>
+    <div class="client-gallery-view-controls">
+      <button type="button" class="client-gallery-view-prev" aria-label="Предыдущее фото">←</button>
+      <div class="client-gallery-view-thumbnails" role="group" aria-label="Миниатюры фотографий"></div>
+      <button type="button" class="client-gallery-view-next" aria-label="Следующее фото">→</button>
+    </div>
+    <p class="client-gallery-view-count" aria-live="polite"></p>`;
+  document.body.append(galleryDialog);
+
+  const zoomStage = galleryDialog.querySelector('.client-gallery-view-stage');
+  const zoomPhoto = galleryDialog.querySelector('.client-gallery-view-image');
+  const zoomCounter = galleryDialog.querySelector('.client-gallery-view-count');
+  const zoomRail = galleryDialog.querySelector('.client-gallery-view-thumbnails');
+  const zoomThumbs = thumbs.map((thumb, index) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'client-gallery-view-thumb';
+    button.setAttribute('aria-label', `Показать фото ${index + 1}`);
+    const image = document.createElement('img');
+    image.alt = '';
+    image.loading = 'lazy';
+    image.src = thumb.querySelector('img')?.src || thumb.href;
+    button.append(image);
+    button.addEventListener('click', () => chooseZoomPhoto(index));
+    return button;
   });
-  page.addEventListener('click', e => {
-    const thumb = e.target.closest('.product-gallery__nav-item a');
-    if (thumb) page.querySelector('.product-gallery__image').dataset.item = thumb.dataset.productGalleryItem ?? thumb.dataset.galleryItem;
+  zoomRail.append(...zoomThumbs);
+  let zoomBounds, zoomFade;
+  let zoomIndex = 0;
+  let zoomRequest = 0;
+
+  function updateZoomHeading() {
+    const title = productHeading.textContent.trim().replace(/\s+\d+\s*(?:ГБ|ТБ)(?:\s.*)?$/iu, '');
+    const memory = page.querySelector('.good-page__memory-list input:checked');
+    const storage = memory?.labels?.[0]?.textContent.trim().replace(/(?:ГБ|ТБ)$/iu, unit => unit.toUpperCase());
+    const color = page.querySelector('.good-page__colors-list input:checked')?.getAttribute('aria-label');
+    galleryDialog.querySelector('.client-gallery-view-model').textContent = title;
+    galleryDialog.querySelector('.client-gallery-view-variant').textContent = [storage, color].filter(Boolean).join(', ');
+  }
+
+  function revealZoomThumb(behavior) {
+    const selected = zoomRail.querySelector('[aria-current="true"]');
+    if (!selected || !zoomRail.clientWidth) return;
+    const left = selected.offsetLeft;
+    const right = left + selected.offsetWidth;
+    if (left < zoomRail.scrollLeft) zoomRail.scrollTo({left, behavior});
+    else if (right > zoomRail.scrollLeft + zoomRail.clientWidth) {
+      zoomRail.scrollTo({left: right - zoomRail.clientWidth, behavior});
+    }
+  }
+
+  function fitZoomPhoto() {
+    if (!galleryDialog.open) return;
+    zoomPhoto.style.transform = '';
+    if (!zoomBounds) return;
+    const [width, height, left, top, right, bottom] = zoomBounds;
+    const {clientWidth, clientHeight} = zoomPhoto;
+    // Fit the visible artwork instead of including the transparent canvas in its margins.
+    const containScale = Math.min(clientWidth / width, clientHeight / height);
+    const scale = Math.min(clientWidth * .94 / (right - left), clientHeight * .91 / (bottom - top));
+    if (!containScale || !scale) return;
+    const x = (width - left - right) * scale / 2;
+    const y = (height - top - bottom) * scale / 2;
+    zoomPhoto.style.transform = `translate(${x}px, ${y}px) scale(${scale / containScale})`;
+  }
+
+  function renderZoomPhoto(index, behavior) {
+    const thumb = thumbs[index];
+    zoomBounds = thumb.dataset.zoomBounds?.split(' ').map(Number);
+    zoomPhoto.src = thumb.href;
+    zoomPhoto.alt = `Фото товара ${index + 1}`;
+    zoomCounter.textContent = `${index + 1} / ${thumbs.length}`;
+    zoomRail.querySelector('[aria-current="true"]')?.removeAttribute('aria-current');
+    zoomThumbs[index].setAttribute('aria-current', 'true');
+    revealZoomThumb(behavior);
+    fitZoomPhoto();
+  }
+
+  async function chooseZoomPhoto(index) {
+    if (index === zoomIndex) return;
+    zoomIndex = index;
+    const request = ++zoomRequest;
+    const preload = new Image();
+    preload.src = thumbs[index].href;
+    await preload.decode().catch(() => {});
+    if (!galleryDialog.open || request !== zoomRequest) return;
+    selectPhoto(index);
+    renderZoomPhoto(index, motion());
+    zoomFade?.cancel();
+    if (!reducedMotion.matches) {
+      zoomFade = zoomPhoto.animate([{opacity:.25}, {opacity:1}], {duration:430, easing:'cubic-bezier(.22,1,.36,1)'});
+    }
+  }
+
+  function stepZoomPhoto(direction) {
+    chooseZoomPhoto((zoomIndex + direction + thumbs.length) % thumbs.length);
+  }
+
+  new ResizeObserver(fitZoomPhoto).observe(zoomPhoto);
+  new ResizeObserver(() => revealZoomThumb('instant')).observe(zoomRail);
+  let zoomTouchStart;
+  zoomStage.addEventListener('touchstart', event => {
+    zoomTouchStart = event.touches.length === 1 ? event.touches[0] : null;
+  }, {passive: true});
+  zoomStage.addEventListener('touchend', event => {
+    if (!zoomTouchStart) return;
+    const direction = swipeDirection(zoomTouchStart, event.changedTouches[0]);
+    zoomTouchStart = null;
+    if (direction) stepZoomPhoto(direction);
+  }, {passive: true});
+  zoomStage.addEventListener('touchcancel', () => { zoomTouchStart = null; });
+  galleryDialog.querySelector('.offline-close').addEventListener('click', () => galleryDialog.close());
+  galleryDialog.querySelector('.client-gallery-view-prev').addEventListener('click', () => stepZoomPhoto(-1));
+  galleryDialog.querySelector('.client-gallery-view-next').addEventListener('click', () => stepZoomPhoto(1));
+  galleryDialog.addEventListener('keydown', event => {
+    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+    event.preventDefault();
+    stepZoomPhoto(event.key === 'ArrowLeft' ? -1 : 1);
+  });
+  galleryDialog.addEventListener('click', event => {
+    if (event.target !== galleryDialog) return;
+    const {left, right, top, bottom} = galleryDialog.getBoundingClientRect();
+    if (event.clientX < left || event.clientX > right || event.clientY < top || event.clientY > bottom) galleryDialog.close();
+  });
+  galleryImage.addEventListener('click', event => {
+    event.preventDefault();
+    if (galleryDialog.open) return;
+    zoomRequest++;
+    zoomFade?.cancel();
+    zoomIndex = currentPhoto();
+    updateZoomHeading();
+    preserveModalGutter();
+    galleryDialog.showModal();
+    renderZoomPhoto(zoomIndex, 'instant');
   });
   const escape = value => String(value).replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
   document.addEventListener('click', e => {
@@ -357,7 +444,7 @@
       ui.selectTab(control.dataset.clientTab);
       const tabs = control.dataset.clientTarget
         ? document.getElementById(control.dataset.clientTarget)
-        : page.querySelector('.bookmark__tabs-list');
+        : page.querySelector('.bookmark');
       if (!tabs) return;
       if (control.dataset.clientTarget && warranty) warranty.open = false;
       const fixedHeader = document.querySelector('.good-page__header');
@@ -370,15 +457,14 @@
         if (previousStyle === null) fixedHeader.removeAttribute('style');
         else fixedHeader.setAttribute('style', previousStyle);
       }
-      window.scrollTo({top: Math.max(0, window.scrollY + tabs.getBoundingClientRect().top - offset - 12), behavior:control.dataset.clientTarget ? 'instant' : 'smooth'});
+      window.scrollTo({top: Math.max(0, window.scrollY + tabs.getBoundingClientRect().top - offset - 12), behavior:control.dataset.clientTarget ? 'instant' : motion()});
       // The native bar fills its content after scrolling and can change height.
       let corrected = false;
       const correctPosition = () => {
         if (corrected) return;
         corrected = true;
         window.removeEventListener('scrollend', correctPosition);
-        const headerBottom = fixedHeader && getComputedStyle(fixedHeader).display !== 'none'
-          ? fixedHeader.getBoundingClientRect().bottom : 0;
+        const headerBottom = parseFloat(document.body.style.getPropertyValue('--client-section-top')) || 0;
         window.scrollBy({top: tabs.getBoundingClientRect().top - headerBottom - 12, behavior:'instant'});
         if (control.dataset.clientTarget) tabs.focus({preventScroll:true});
       };
@@ -429,7 +515,7 @@
         const money = value => value.toLocaleString('ru-RU', {maximumFractionDigits: 2}) + ' ₽';
         ui.show('Яндекс Сплит', `
           <div class="client-split-intro">
-            <i class="client-split-icon" aria-hidden="true">&#xf09d;</i>
+            <img class="client-split-icon" src="assets/client-split-mark.svg" width="38" height="38" alt="">
             <h3>2 месяца без переплат</h3>
             <p>Первый платёж сейчас — ${money(price / 2)}, второй через месяц</p>
           </div>
@@ -442,7 +528,7 @@
         break;
       }
       case 'promotions': {
-        const promotions = [...page.querySelectorAll('.product_stocks .badge .tooltip')];
+        const promotions = [...page.querySelectorAll('.client-price-card .product_stocks .badge > a')];
         const captions = {
           'z-fold-8-z-flip-8': 'Специальная выгода при покупке смартфона.',
           '646': 'Покупка по программе трейд-ин.',
@@ -450,8 +536,7 @@
           'kiber-vyhodnye': 'Предложение по использованию бонусов.'
         };
         const cards = promotions.map(link => {
-          const title = link.closest('.badge').querySelector('.tooltip_text')?.textContent.trim()
-            || [...link.childNodes].filter(node => node.nodeType === Node.TEXT_NODE).map(node => node.textContent).join('').trim();
+          const title = [...link.childNodes].filter(node => node.nodeType === Node.TEXT_NODE).map(node => node.textContent).join('').trim();
           const slug = new URL(link.href).pathname.split('/').filter(Boolean).pop();
           const caption = captions[slug] || 'Условия и сроки — на странице акции.';
           return `<article class="client-promotion-card"><h3>${escape(title)}</h3><p>${escape(caption)}</p><a href="${escape(link.href)}" target="_blank" rel="noopener">Подробнее <span aria-hidden="true">→</span></a></article>`;
